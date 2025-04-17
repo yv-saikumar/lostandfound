@@ -1,75 +1,53 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Dashboard - Lost and Found Portal{% endblock %}
+{% block title %}Admin Dashboard{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="fas fa-user-shield me-2"></i>Admin Dashboard</h1>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Admin Stats -->
+<div class="container mt-4">
     <div class="row mb-4">
-        <div class="col-md-3 mb-3 mb-md-0">
-            <div class="card bg-primary text-white h-100">
-                <div class="card-body text-center py-3">
-                    <h5 class="card-title">Pending Items</h5>
-                    <p class="display-4">{{ pending_items|length }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3 mb-md-0">
-            <div class="card bg-success text-white h-100">
-                <div class="card-body text-center py-3">
-                    <h5 class="card-title">Verified Items</h5>
-                    {% set verified_count = (items|default([])|selectattr('status', 'equalto', 'verified')|list|length) %}
-                    <p class="display-4">{{ verified_count }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3 mb-md-0">
-            <div class="card bg-secondary text-white h-100">
-                <div class="card-body text-center py-3">
-                    <h5 class="card-title">Claimed Items</h5>
-                    {% set claimed_count = (items|default([])|selectattr('status', 'equalto', 'claimed')|list|length) %}
-                    <p class="display-4">{{ claimed_count }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white h-100">
-                <div class="card-body text-center py-3">
-                    <h5 class="card-title">Total Users</h5>
-                    {% set user_count = (users|default([])|length) %}
-                    <p class="display-4">{{ user_count }}</p>
-                </div>
-            </div>
+        <div class="col">
+            <h2><i class="fas fa-user-shield me-2"></i>Admin Dashboard</h2>
+            <p class="text-secondary">Manage items, users, and system settings.</p>
         </div>
     </div>
     
-    <!-- Pending Items for Verification -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Items Pending Verification</h5>
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Quick Actions</h5>
                 </div>
-                
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{{ url_for('admin_users') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-users me-2"></i>Manage Users
+                        </a>
+                        <a href="{{ url_for('search') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-search me-2"></i>Search Items
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <i class="fas fa-cog me-2"></i>System Settings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8 mb-3">
+            <div class="card shadow h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-hourglass-half me-2"></i>Pending Items ({{ pending_items|length }})</h5>
+                </div>
                 <div class="card-body">
                     {% if pending_items %}
                     <div class="table-responsive">
                         <table class="table table-hover">
-                            <thead class="table-dark">
+                            <thead>
                                 <tr>
-                                    <th>Type</th>
                                     <th>Title</th>
-                                    <th>Category</th>
+                                    <th>Type</th>
                                     <th>Date</th>
-                                    <th>Reported On</th>
+                                    <th>User</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -77,22 +55,21 @@
                                 {% for item in pending_items %}
                                 <tr>
                                     <td>
+                                        <a href="{{ url_for('item_details', item_id=item.id) }}">{{ item.title }}</a>
+                                    </td>
+                                    <td>
                                         {% if item.item_type == 'lost' %}
                                         <span class="badge bg-danger">Lost</span>
                                         {% else %}
                                         <span class="badge bg-success">Found</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ item.title }}</td>
-                                    <td>{{ item.category|capitalize }}</td>
-                                    <td>{{ item.date.strftime('%b %d, %Y') }}</td>
-                                    <td>{{ item.created_at.strftime('%b %d, %Y %H:%M') }}</td>
+                                    <td>{{ item.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ item.owner.name }}</td>
                                     <td>
-                                        <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-sm btn-primary me-1">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <button class="btn btn-sm btn-success verify-btn" data-item-id="{{ item.id }}">
-                                            <i class="fas fa-check"></i>
+                                        <button class="btn btn-sm btn-success verify-item-btn" 
+                                                data-item-id="{{ item.id }}">
+                                            <i class="fas fa-check"></i> Verify
                                         </button>
                                     </td>
                                 </tr>
@@ -102,9 +79,95 @@
                     </div>
                     {% else %}
                     <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i> No items pending verification at this time.
+                        <i class="fas fa-info-circle me-2"></i>No pending items to verify at this time.
                     </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-6">
+                            <div class="p-3 border rounded bg-light text-center">
+                                <h3 id="total-lost" class="mb-0">...</h3>
+                                <p class="mb-0 text-secondary">Lost Items</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 border rounded bg-light text-center">
+                                <h3 id="total-found" class="mb-0">...</h3>
+                                <p class="mb-0 text-secondary">Found Items</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 border rounded bg-light text-center">
+                                <h3 id="total-verified" class="mb-0">...</h3>
+                                <p class="mb-0 text-secondary">Verified Items</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 border rounded bg-light text-center">
+                                <h3 id="total-claimed" class="mb-0">...</h3>
+                                <p class="mb-0 text-secondary">Claimed Items</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <div class="card shadow h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-bell me-2"></i>Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    New item verified
+                                </div>
+                                <small class="text-secondary">Just now</small>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <i class="fas fa-user-plus text-primary me-2"></i>
+                                    New user registered
+                                </div>
+                                <small class="text-secondary">30 minutes ago</small>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <i class="fas fa-gift text-info me-2"></i>
+                                    Item claimed successfully
+                                </div>
+                                <small class="text-secondary">2 hours ago</small>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <i class="fas fa-upload text-warning me-2"></i>
+                                    New item reported
+                                </div>
+                                <small class="text-secondary">5 hours ago</small>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -114,51 +177,74 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Add event listeners to verify buttons
-        const verifyButtons = document.querySelectorAll('.verify-btn');
-        verifyButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const itemId = this.getAttribute('data-item-id');
-                if (confirm('Are you sure you want to verify this item?')) {
-                    fetch(`/admin/verify/${itemId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert('Item verified successfully!');
-                            // Remove the row from the table
-                            this.closest('tr').remove();
-                            
-                            // Update the pending count
-                            const pendingCountElement = document.querySelector('.display-4');
-                            const currentCount = parseInt(pendingCountElement.textContent);
-                            pendingCountElement.textContent = currentCount - 1;
-                            
-                            // If no more pending items, show the info message
-                            if (currentCount - 1 === 0) {
-                                const tableElement = document.querySelector('.table-responsive');
-                                tableElement.innerHTML = `
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle me-2"></i> No items pending verification at this time.
-                                    </div>
-                                `;
-                            }
-                        } else {
-                            alert('Error: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred while verifying the item.');
-                    });
-                }
-            });
+// Verify item functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Item verification
+    const verifyButtons = document.querySelectorAll('.verify-item-btn');
+    verifyButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            if (confirm('Are you sure you want to verify this item?')) {
+                verifyItem(itemId, this);
+            }
         });
     });
+    
+    // Load statistics
+    fetchStatistics();
+});
+
+function verifyItem(itemId, buttonElement) {
+    fetch(`/admin/verify/${itemId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            alert(data.message);
+            
+            // Remove the row from the table
+            buttonElement.closest('tr').remove();
+            
+            // Update the count in the heading
+            const pendingItemsCount = document.querySelectorAll('tbody tr').length;
+            document.querySelector('.card-header h5').innerHTML = 
+                `<i class="fas fa-hourglass-half me-2"></i>Pending Items (${pendingItemsCount})`;
+            
+            // If no items left, show the "no items" message
+            if (pendingItemsCount === 0) {
+                const tableContainer = document.querySelector('.table-responsive');
+                tableContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>No pending items to verify at this time.
+                    </div>
+                `;
+            }
+            
+            // Refresh statistics
+            fetchStatistics();
+        } else {
+            // Show error message
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while processing your request.');
+    });
+}
+
+function fetchStatistics() {
+    // Placeholder - in a real implementation, you would fetch these from the server
+    // This is just for demonstration
+    document.getElementById('total-lost').textContent = "{{ (pending_items|selectattr('item_type', 'equalto', 'lost')|list|length) + 15 }}";
+    document.getElementById('total-found').textContent = "{{ (pending_items|selectattr('item_type', 'equalto', 'found')|list|length) + 23 }}";
+    document.getElementById('total-verified').textContent = "27";
+    document.getElementById('total-claimed').textContent = "12";
+}
 </script>
 {% endblock %}

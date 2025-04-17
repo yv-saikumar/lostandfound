@@ -78,6 +78,11 @@
                         <a class="nav-link {% if request.path == url_for('register') %}active{% endif %}" 
                            href="{{ url_for('register') }}">Register</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == url_for('admin_login') %}active{% endif %}" 
+                           href="{{ url_for('admin_login') }}">
+                           <i class="fas fa-user-shield"></i> Admin</a>
+                    </li>
                     {% endif %}
                 </ul>
             </div>
@@ -124,6 +129,7 @@
                         {% else %}
                         <li><a href="{{ url_for('login') }}" class="text-decoration-none text-white-50">Login</a></li>
                         <li><a href="{{ url_for('register') }}" class="text-decoration-none text-white-50">Register</a></li>
+                        <li><a href="{{ url_for('admin_login') }}" class="text-decoration-none text-white-50">Admin Portal</a></li>
                         {% endif %}
                     </ul>
                 </div>

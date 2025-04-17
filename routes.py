@@ -212,6 +212,31 @@ def search():
     
     return render_template('search.html', form=form, results=results)
 
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if current_user.is_authenticated:
+        if current_user.is_admin:
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Access denied. Admin privileges required.', 'danger')
+            return redirect(url_for('dashboard'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = models.get_user_by_email(form.email.data)
+        if user and user.check_password(form.password.data):
+            if user.is_admin:
+                login_user(user, remember=form.remember.data)
+                next_page = request.args.get('next')
+                flash('Admin login successful.', 'success')
+                return redirect(next_page or url_for('admin_dashboard'))
+            else:
+                flash('Access denied. Admin privileges required.', 'danger')
+        else:
+            flash('Login failed. Check your email and password.', 'danger')
+    
+    return render_template('admin_login.html', form=form)
+
 @app.route('/admin')
 @login_required
 def admin_dashboard():
@@ -275,9 +300,16 @@ def admin_users():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('dashboard'))
-        
+    
+    import datetime
+    
     users = models.User.query.all()
-    return render_template('admin_users.html', users=users)
+    return render_template(
+        'admin_users.html', 
+        users=users, 
+        now=datetime.datetime.utcnow(),
+        timedelta=datetime.timedelta
+    )
 
 @app.route('/admin/user/<int:user_id>', methods=['GET', 'POST'])
 @login_required

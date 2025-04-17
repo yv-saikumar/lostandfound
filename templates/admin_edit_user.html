@@ -1,92 +1,143 @@
 {% extends "base.html" %}
 
-{% block title %}Admin - Edit User - Lost and Found Portal{% endblock %}
+{% block title %}Admin - Edit User{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row">
-        <div class="col-12 mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="mb-0">Admin Panel</h1>
-                    <p class="text-muted">Edit User</p>
-                </div>
-                <div>
-                    <a href="{{ url_for('admin_users') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Users
-                    </a>
-                </div>
-            </div>
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_users') }}">Manage Users</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Edit User</li>
+                </ol>
+            </nav>
+            <h2><i class="fas fa-user-edit me-2"></i>Edit User</h2>
+            <p class="text-secondary">Edit user information and privileges.</p>
         </div>
     </div>
     
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <!-- Admin Navigation -->
-            <div class="card mb-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow">
                 <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Admin Menu</h5>
-                </div>
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('admin_dashboard') }}" class="list-group-item list-group-item-action">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                    </a>
-                    <a href="{{ url_for('admin_users') }}" class="list-group-item list-group-item-action active">
-                        <i class="fas fa-users me-2"></i>User Management
-                    </a>
-                    <a href="{{ url_for('dashboard') }}" class="list-group-item list-group-item-action">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Main Site
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-9">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-user-edit me-2"></i>Edit User: {{ user.name }}</h5>
+                    <h5 class="mb-0"><i class="fas fa-pen me-2"></i>Edit User Details</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" action="{{ url_for('admin_edit_user', user_id=user.id) }}">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-3">
-                            {{ form.name.label(class="form-label") }}
-                            {{ form.name(class="form-control", placeholder="Full name") }}
-                            {% for error in form.name.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                            {% endfor %}
+                            <label for="name" class="form-label">{{ form.name.label }}</label>
+                            {{ form.name(class="form-control") }}
+                            {% if form.name.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.name.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">
-                            {{ form.email.label(class="form-label") }}
-                            {{ form.email(class="form-control", placeholder="Email address") }}
-                            {% for error in form.email.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                            {% endfor %}
+                            <label for="email" class="form-label">{{ form.email.label }}</label>
+                            {{ form.email(class="form-control") }}
+                            {% if form.email.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.email.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">
-                            {{ form.password.label(class="form-label") }}
+                            <label for="password" class="form-label">{{ form.password.label }}</label>
                             {{ form.password(class="form-control") }}
-                            {% for error in form.password.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                            {% endfor %}
-                            <div class="form-text">Leave blank to keep current password</div>
+                            <div class="form-text text-secondary">Leave blank to keep current password</div>
+                            {% if form.password.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.password.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3 form-check">
                             {{ form.is_admin(class="form-check-input") }}
-                            {{ form.is_admin.label(class="form-check-label") }}
+                            <label class="form-check-label" for="is_admin">{{ form.is_admin.label }}</label>
                         </div>
                         
                         <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('admin_users') }}" class="btn btn-secondary">
-                                <i class="fas fa-times me-2"></i>Cancel
+                            <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Users
                             </a>
                             {{ form.submit(class="btn btn-primary") }}
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>User Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        {% if user.profile_picture %}
+                        <img src="data:image/jpeg;base64,{{ user.profile_picture }}" 
+                             class="rounded-circle" width="100" height="100" alt="Profile picture">
+                        {% else %}
+                        <i class="fas fa-user-circle fa-5x text-secondary"></i>
+                        {% endif %}
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <i class="fas fa-id-card me-2"></i>ID: {{ user.id }}
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-clock me-2"></i>Created: {{ user.created_at.strftime('%Y-%m-%d') }}
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-phone me-2"></i>Phone: {{ user.phone_number or 'Not provided' }}
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-bell me-2"></i>Email Notifications: 
+                            {% if user.email_notifications %}
+                            <span class="badge bg-success">Enabled</span>
+                            {% else %}
+                            <span class="badge bg-danger">Disabled</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-comment-dots me-2"></i>SMS Notifications: 
+                            {% if user.sms_notifications %}
+                            <span class="badge bg-success">Enabled</span>
+                            {% else %}
+                            <span class="badge bg-danger">Disabled</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Security Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-warning" disabled>
+                            <i class="fas fa-key me-1"></i> Reset Password
+                        </button>
+                        <button class="btn btn-outline-danger" disabled>
+                            <i class="fas fa-ban me-1"></i> Suspend Account
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
