@@ -13,9 +13,14 @@ class User(db.Model, UserMixin):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=True)  # For SMS notifications
     profile_picture = db.Column(db.Text, nullable=True)
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    
+    # Notifications preferences
+    email_notifications = db.Column(db.Boolean, default=True)
+    sms_notifications = db.Column(db.Boolean, default=False)
     
     # Relationships
     items = relationship("Item", back_populates="owner", foreign_keys="Item.user_id")
@@ -118,7 +123,8 @@ class Proof(db.Model):
     user = relationship("User")
 
 # Helper functions for database operations
-def create_user(name, email, password, is_admin=False, profile_picture=None):
+def create_user(name, email, password, is_admin=False, profile_picture=None, 
+               phone_number=None, email_notifications=True, sms_notifications=False):
     user = User.query.filter_by(email=email).first()
     if user:
         return None
@@ -126,8 +132,11 @@ def create_user(name, email, password, is_admin=False, profile_picture=None):
     new_user = User(
         name=name,
         email=email,
+        phone_number=phone_number,
         is_admin=is_admin,
-        profile_picture=profile_picture
+        profile_picture=profile_picture,
+        email_notifications=email_notifications,
+        sms_notifications=sms_notifications
     )
     new_user.set_password(password)
     
@@ -291,7 +300,10 @@ def create_default_admin():
             name="Admin",
             email="admin@lostandfound.com",
             password="admin123",
-            is_admin=True
+            is_admin=True,
+            phone_number=None,
+            email_notifications=True,
+            sms_notifications=False
         )
 
 # Note: This function will be called from app.py within an app context

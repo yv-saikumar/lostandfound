@@ -63,19 +63,29 @@ def register():
         if form.profile_picture.data:
             profile_picture_data = resize_and_convert_image(form.profile_picture.data.read())
         
-        # Create new user
-        user = models.create_user(
-            name=form.name.data,
-            email=form.email.data,
-            password=form.password.data,
-            profile_picture=profile_picture_data
-        )
-        
-        if user:
+        try:
+            # Create new user directly with SQLAlchemy
+            from models import User
+            
+            user = User(
+                name=form.name.data,
+                email=form.email.data,
+                phone_number=form.phone_number.data if form.phone_number.data else None,
+                profile_picture=profile_picture_data,
+                email_notifications=form.email_notifications.data,
+                sms_notifications=form.sms_notifications.data
+            )
+            user.set_password(form.password.data)
+            
+            db.session.add(user)
+            db.session.commit()
+            
             flash('Account created! You can now log in.', 'success')
             return redirect(url_for('login'))
-        else:
-            flash('Error creating account.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating user: {str(e)}")
+            flash('Error creating account. Please try again.', 'danger')
     
     return render_template('register.html', form=form)
 
@@ -225,17 +235,37 @@ def verify_item(item_id):
     # Update item status
     models.update_item_status(item_id, 'verified', current_user.id)
     
-    # Send email notification to owner
+    # Send notifications to owner
     owner = models.get_user_by_id(item.user_id)
     if owner:
-        send_verification_email(owner.email, item)
+        # Email notification
+        if owner.email_notifications:
+            send_verification_email(owner.email, item)
+        
+        # SMS notification if enabled and phone number provided
+        if owner.sms_notifications and owner.phone_number:
+            from sms import send_verification_sms
+            try:
+                send_verification_sms(owner.phone_number, item)
+            except Exception as e:
+                print(f"Error sending SMS notification: {e}")
     
     # Find potential matches and notify users
     potential_matches = find_potential_matches(item)
     for matched_item in potential_matches:
         matched_user = models.get_user_by_id(matched_item.user_id)
         if matched_user:
-            send_match_notification(matched_user.email, item)
+            # Email notification for potential match
+            if matched_user.email_notifications:
+                send_match_notification(matched_user.email, item)
+            
+            # SMS notification for potential match
+            if matched_user.sms_notifications and matched_user.phone_number:
+                from sms import send_match_sms
+                try:
+                    send_match_sms(matched_user.phone_number, item)
+                except Exception as e:
+                    print(f"Error sending match SMS notification: {e}")
     
     return jsonify({'success': True, 'message': 'Item verified successfully'})
 
@@ -324,28 +354,38 @@ def claim_item(item_id):
     # Notify the item owner
     owner = models.get_user_by_id(item.user_id)
     if owner:
-        msg = Message(
-            subject="Your Item Has Been Claimed - Lost and Found Portal",
-            recipients=[owner.email]
-        )
+        # Email notification
+        if owner.email_notifications:
+            msg = Message(
+                subject="Your Item Has Been Claimed - Lost and Found Portal",
+                recipients=[owner.email]
+            )
+            
+            msg.body = f"""
+            Dear {owner.name},
+            
+            Your {item.item_type} item "{item.title}" has been claimed by {current_user.name}.
+            
+            Please check your dashboard for more details and to get in touch with the claimer.
+            
+            Thank you for using our Lost and Found Portal!
+            
+            Best regards,
+            The Lost and Found Team
+            """
+            
+            try:
+                mail.send(msg)
+            except Exception as e:
+                print(f"Error sending claim email: {e}")
         
-        msg.body = f"""
-        Dear {owner.name},
-        
-        Your {item.item_type} item "{item.title}" has been claimed by {current_user.name}.
-        
-        Please check your dashboard for more details and to get in touch with the claimer.
-        
-        Thank you for using our Lost and Found Portal!
-        
-        Best regards,
-        The Lost and Found Team
-        """
-        
-        try:
-            mail.send(msg)
-        except Exception as e:
-            print(f"Error sending email: {e}")
+        # SMS notification
+        if owner.sms_notifications and owner.phone_number:
+            from sms import send_claim_sms
+            try:
+                send_claim_sms(owner.phone_number, item, current_user.name)
+            except Exception as e:
+                print(f"Error sending claim SMS: {e}")
     
     return jsonify({'success': True, 'message': 'Item claimed successfully'})
 
@@ -384,7 +424,7 @@ def submit_proof(item_id):
         # Notify the item owner
         owner = models.get_user_by_id(item.user_id)
         if owner:
-            # Create a message notifying the owner
+            # Create an internal message
             models.create_message(
                 sender_id=current_user.id,
                 recipient_id=owner.id,
@@ -399,6 +439,39 @@ Proof Description:
 Thank you,
 {current_user.name}"""
             )
+            
+            # Send email notification if enabled
+            if owner.email_notifications:
+                try:
+                    msg = Message(
+                        subject=f"Proof of Ownership Submitted - {item.title}",
+                        recipients=[owner.email]
+                    )
+                    
+                    msg.body = f"""
+                    Dear {owner.name},
+                    
+                    {current_user.name} has submitted proof of ownership for your {item.item_type} item "{item.title}".
+                    
+                    Please log in to review the proof and respond to the claim.
+                    
+                    Thank you for using our Lost and Found Portal!
+                    
+                    Best regards,
+                    The Lost and Found Team
+                    """
+                    
+                    mail.send(msg)
+                except Exception as e:
+                    print(f"Error sending proof email notification: {e}")
+            
+            # Send SMS notification if enabled
+            if owner.sms_notifications and owner.phone_number:
+                from sms import send_proof_sms
+                try:
+                    send_proof_sms(owner.phone_number, item, current_user.name)
+                except Exception as e:
+                    print(f"Error sending proof SMS notification: {e}")
         
         flash('Your proof of ownership has been submitted.', 'success')
         return redirect(url_for('item_details', item_id=item_id))
@@ -414,6 +487,9 @@ def profile():
         # Pre-fill form with current user data
         form.name.data = current_user.name
         form.email.data = current_user.email
+        form.phone_number.data = current_user.phone_number
+        form.email_notifications.data = current_user.email_notifications
+        form.sms_notifications.data = current_user.sms_notifications
     
     if form.validate_on_submit():
         # Verify current password
@@ -423,6 +499,9 @@ def profile():
         
         # Update profile
         current_user.name = form.name.data
+        current_user.phone_number = form.phone_number.data
+        current_user.email_notifications = form.email_notifications.data
+        current_user.sms_notifications = form.sms_notifications.data
         
         # Update email if changed
         if form.email.data != current_user.email:
@@ -440,6 +519,11 @@ def profile():
         if form.profile_picture.data:
             current_user.profile_picture = resize_and_convert_image(form.profile_picture.data.read())
         
+        # Check if SMS notifications enabled but no phone
+        if current_user.sms_notifications and not current_user.phone_number:
+            flash('SMS notifications require a phone number. Please add a phone number or disable SMS notifications.', 'warning')
+            current_user.sms_notifications = False
+            
         db.session.commit()
         flash('Your profile has been updated.', 'success')
         return redirect(url_for('profile'))

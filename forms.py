@@ -13,18 +13,26 @@ class LoginForm(FlaskForm):
 class RegistrationForm(FlaskForm):
     name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
     email = StringField('Email', validators=[DataRequired(), Email()])
+    phone_number = StringField('Phone Number (Optional, for SMS notifications)', 
+                              validators=[Length(max=20)])
     password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirm Password', 
                                      validators=[DataRequired(), EqualTo('password')])
     profile_picture = FileField('Profile Picture (Optional)', 
                               validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
+    email_notifications = BooleanField('Email Notifications', default=True)
+    sms_notifications = BooleanField('SMS Notifications', default=False)
     submit = SubmitField('Register')
 
 class ProfileUpdateForm(FlaskForm):
     name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
     email = StringField('Email', validators=[DataRequired(), Email()])
+    phone_number = StringField('Phone Number (Optional, for SMS notifications)', 
+                              validators=[Length(max=20)])
     profile_picture = FileField('Profile Picture', 
                               validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
+    email_notifications = BooleanField('Email Notifications')
+    sms_notifications = BooleanField('SMS Notifications')
     current_password = PasswordField('Current Password (required to confirm changes)')
     new_password = PasswordField('New Password (leave blank to keep current)', 
                                 validators=[Length(min=6, message="Password must be at least 6 characters")])
