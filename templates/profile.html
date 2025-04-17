@@ -7,6 +7,7 @@
     <div class="row">
         <div class="col-12 mb-4">
             <h1 class="mb-0">Your Profile</h1>
+            <p class="text-muted">Manage your account information and see your activity</p>
         </div>
     </div>
     
@@ -19,9 +20,13 @@
                 </div>
                 <div class="card-body text-center">
                     <div class="mb-3">
-                        <div class="profile-icon bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
-                            <i class="fas fa-user fa-4x"></i>
-                        </div>
+                        {% if user.profile_picture %}
+                            <img src="{{ user.profile_picture }}" alt="Profile Picture" class="rounded-circle img-thumbnail" style="width: 120px; height: 120px; object-fit: cover;">
+                        {% else %}
+                            <div class="profile-icon bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
+                                <i class="fas fa-user fa-4x"></i>
+                            </div>
+                        {% endif %}
                     </div>
                     <h4 class="card-title">{{ user.name }}</h4>
                     <p class="card-text text-muted">{{ user.email }}</p>
@@ -37,6 +42,82 @@
                     <p class="card-text small text-muted">
                         <i class="fas fa-calendar-alt me-1"></i> Joined: {{ user.created_at.strftime('%B %d, %Y') }}
                     </p>
+                    
+                    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editProfileForm" aria-expanded="false" aria-controls="editProfileForm">
+                        <i class="fas fa-edit me-1"></i> Edit Profile
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Edit Profile Form (Collapsed by default) -->
+            <div class="collapse mt-3" id="editProfileForm">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Profile</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" enctype="multipart/form-data">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-3">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control", placeholder="Your full name") }}
+                                {% for error in form.name.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.email.label(class="form-label") }}
+                                {{ form.email(class="form-control", placeholder="Your email address") }}
+                                {% for error in form.email.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.profile_picture.label(class="form-label") }}
+                                {{ form.profile_picture(class="form-control") }}
+                                {% for error in form.profile_picture.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">Upload a profile picture (JPG, PNG only)</div>
+                            </div>
+                            
+                            <hr>
+                            <h6 class="mb-3">Password Update</h6>
+                            
+                            <div class="mb-3">
+                                {{ form.current_password.label(class="form-label") }}
+                                {{ form.current_password(class="form-control") }}
+                                {% for error in form.current_password.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">Required to confirm changes</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.new_password.label(class="form-label") }}
+                                {{ form.new_password(class="form-control") }}
+                                {% for error in form.new_password.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">Leave blank to keep current password</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.confirm_new_password.label(class="form-label") }}
+                                {{ form.confirm_new_password(class="form-control") }}
+                                {% for error in form.confirm_new_password.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="d-grid">
+                                {{ form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -53,7 +134,7 @@
                             <div class="card bg-primary text-white">
                                 <div class="card-body text-center py-3">
                                     <h5 class="card-title">Total Items</h5>
-                                    <p class="display-4">{{ user.items_reported|length }}</p>
+                                    <p class="display-4">{{ user.items|length }}</p>
                                 </div>
                             </div>
                         </div>
@@ -61,14 +142,8 @@
                             <div class="card bg-danger text-white">
                                 <div class="card-body text-center py-3">
                                     <h5 class="card-title">Lost Items</h5>
-                                    {% set lost_count = 0 %}
-                                    {% for item_id in user.items_reported %}
-                                        {% set item = get_item_by_id(item_id) %}
-                                        {% if item and item.item_type == 'lost' %}
-                                            {% set lost_count = lost_count + 1 %}
-                                        {% endif %}
-                                    {% endfor %}
-                                    <p class="display-4">{{ lost_count }}</p>
+                                    {% set lost_items = user.items|selectattr('item_type', 'equalto', 'lost')|list %}
+                                    <p class="display-4">{{ lost_items|length }}</p>
                                 </div>
                             </div>
                         </div>
@@ -76,14 +151,8 @@
                             <div class="card bg-success text-white">
                                 <div class="card-body text-center py-3">
                                     <h5 class="card-title">Found Items</h5>
-                                    {% set found_count = 0 %}
-                                    {% for item_id in user.items_reported %}
-                                        {% set item = get_item_by_id(item_id) %}
-                                        {% if item and item.item_type == 'found' %}
-                                            {% set found_count = found_count + 1 %}
-                                        {% endif %}
-                                    {% endfor %}
-                                    <p class="display-4">{{ found_count }}</p>
+                                    {% set found_items = user.items|selectattr('item_type', 'equalto', 'found')|list %}
+                                    <p class="display-4">{{ found_items|length }}</p>
                                 </div>
                             </div>
                         </div>
@@ -91,40 +160,37 @@
                     
                     <div class="mt-4">
                         <h5 class="mb-3">Recent Activity</h5>
-                        {% if user.items_reported %}
+                        {% if user.items %}
                             <div class="list-group">
-                                {% for item_id in user.items_reported[:5] %}
-                                    {% set item = get_item_by_id(item_id) %}
-                                    {% if item %}
-                                    <a href="{{ url_for('item_details', item_id=item.id) }}" class="list-group-item list-group-item-action">
-                                        <div class="d-flex w-100 justify-content-between">
-                                            <h6 class="mb-1">
-                                                {% if item.item_type == 'lost' %}
-                                                <span class="text-danger"><i class="fas fa-search me-1"></i></span>
-                                                {% else %}
-                                                <span class="text-success"><i class="fas fa-hand-holding me-1"></i></span>
-                                                {% endif %}
-                                                {{ item.title }}
-                                            </h6>
-                                            <small>{{ item.created_at.strftime('%b %d, %Y') }}</small>
-                                        </div>
-                                        <p class="mb-1 small text-truncate">{{ item.description }}</p>
-                                        <div class="d-flex w-100 justify-content-between">
-                                            <small class="text-muted">
-                                                <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
-                                            </small>
-                                            <small>
-                                                {% if item.status == 'pending' %}
-                                                <span class="badge bg-warning text-dark">Pending</span>
-                                                {% elif item.status == 'verified' %}
-                                                <span class="badge bg-info">Verified</span>
-                                                {% elif item.status == 'claimed' %}
-                                                <span class="badge bg-secondary">Claimed</span>
-                                                {% endif %}
-                                            </small>
-                                        </div>
-                                    </a>
-                                    {% endif %}
+                                {% for item in user.items[:5] %}
+                                <a href="{{ url_for('item_details', item_id=item.id) }}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">
+                                            {% if item.item_type == 'lost' %}
+                                            <span class="text-danger"><i class="fas fa-search me-1"></i></span>
+                                            {% else %}
+                                            <span class="text-success"><i class="fas fa-hand-holding me-1"></i></span>
+                                            {% endif %}
+                                            {{ item.title }}
+                                        </h6>
+                                        <small>{{ item.created_at.strftime('%b %d, %Y') }}</small>
+                                    </div>
+                                    <p class="mb-1 small text-truncate">{{ item.description }}</p>
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <small class="text-muted">
+                                            <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                                        </small>
+                                        <small>
+                                            {% if item.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                            {% elif item.status == 'verified' %}
+                                            <span class="badge bg-info">Verified</span>
+                                            {% elif item.status == 'claimed' %}
+                                            <span class="badge bg-secondary">Claimed</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </a>
                                 {% endfor %}
                             </div>
                         {% else %}
@@ -133,12 +199,43 @@
                             </div>
                         {% endif %}
                     </div>
+                    
+                    <div class="mt-4">
+                        <h5 class="mb-3">Message Center</h5>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{{ url_for('messages') }}" class="btn btn-info">
+                                    <i class="fas fa-envelope me-1"></i> View Messages
+                                    {% set unread = namespace(count=0) %}
+                                    {% if unread_count and unread_count > 0 %}
+                                        <span class="badge bg-danger ms-1">{{ unread_count }}</span>
+                                    {% endif %}
+                                </a>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('new_message') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-pen me-1"></i> New Message
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="card-footer">
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-                        <i class="fas fa-th-list me-1"></i> View All Items
-                    </a>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                            <i class="fas fa-th-list me-1"></i> View All Items
+                        </a>
+                        
+                        <div>
+                            <a href="{{ url_for('report_item', item_type='lost') }}" class="btn btn-danger">
+                                <i class="fas fa-search me-1"></i> Report Lost Item
+                            </a>
+                            <a href="{{ url_for('report_item', item_type='found') }}" class="btn btn-success ms-2">
+                                <i class="fas fa-hand-holding me-1"></i> Report Found Item
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

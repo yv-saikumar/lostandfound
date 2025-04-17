@@ -3,19 +3,30 @@ import base64
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, abort, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash
-from app import app, mail
+from flask_mail import Message
+from werkzeug.security import generate_password_hash, check_password_hash
+from app import app, mail, db
 import models
-from forms import LoginForm, RegistrationForm, ItemForm, SearchForm
-from utils import resize_and_convert_image, send_verification_email, send_match_notification, find_potential_matches
+from forms import (
+    LoginForm, RegistrationForm, ItemForm, SearchForm, ProfileUpdateForm,
+    MessageForm, ReplyMessageForm, ProofOfOwnershipForm, AdminUserForm
+)
+from utils import (
+    resize_and_convert_image, send_verification_email, 
+    send_match_notification, find_potential_matches
+)
 
 @app.route('/')
 def index():
     # Get 5 most recent verified items of each type
-    lost_items = [item for item in models.get_items_by_type('lost') 
-                 if item.status == 'verified'][-5:]
-    found_items = [item for item in models.get_items_by_type('found') 
-                  if item.status == 'verified'][-5:]
+    lost_items = models.Item.query.filter_by(
+        item_type='lost', status='verified'
+    ).order_by(models.Item.created_at.desc()).limit(5).all()
+    
+    found_items = models.Item.query.filter_by(
+        item_type='found', status='verified'
+    ).order_by(models.Item.created_at.desc()).limit(5).all()
+    
     return render_template('index.html', lost_items=lost_items, found_items=found_items)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -47,11 +58,17 @@ def register():
             flash('Email already registered.', 'danger')
             return render_template('register.html', form=form)
         
+        # Process profile picture if uploaded
+        profile_picture_data = None
+        if form.profile_picture.data:
+            profile_picture_data = resize_and_convert_image(form.profile_picture.data.read())
+        
         # Create new user
         user = models.create_user(
             name=form.name.data,
             email=form.email.data,
-            password=form.password.data
+            password=form.password.data,
+            profile_picture=profile_picture_data
         )
         
         if user:
@@ -73,7 +90,11 @@ def logout():
 @login_required
 def dashboard():
     user_items = models.get_items_by_user(current_user.id)
-    return render_template('dashboard.html', items=user_items)
+    
+    # Count unread messages
+    unread_count = models.count_unread_messages(current_user.id)
+    
+    return render_template('dashboard.html', items=user_items, unread_count=unread_count)
 
 @app.route('/report/<item_type>', methods=['GET', 'POST'])
 @login_required
@@ -139,9 +160,26 @@ def item_details(item_id):
     if current_user.is_authenticated and is_owner:
         potential_matches = find_potential_matches(item)
     
-    return render_template('item_details.html', item=item, owner=owner, 
-                          is_owner=is_owner, is_admin=is_admin, 
-                          potential_matches=potential_matches)
+    # Get proofs of ownership if admin
+    proofs = []
+    if is_admin:
+        proofs = models.get_proofs_for_item(item_id)
+    
+    # Get proof form if user is authenticated and not the owner
+    proof_form = None
+    if current_user.is_authenticated and not is_owner and item.status == 'verified':
+        proof_form = ProofOfOwnershipForm()
+    
+    return render_template(
+        'item_details.html', 
+        item=item, 
+        owner=owner, 
+        is_owner=is_owner, 
+        is_admin=is_admin, 
+        potential_matches=potential_matches,
+        proofs=proofs,
+        proof_form=proof_form
+    )
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
@@ -195,6 +233,73 @@ def verify_item(item_id):
     
     return jsonify({'success': True, 'message': 'Item verified successfully'})
 
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    users = models.User.query.all()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/user/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def admin_edit_user(user_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    user = models.User.query.get_or_404(user_id)
+    form = AdminUserForm(obj=user)
+    
+    if form.validate_on_submit():
+        user.name = form.name.data
+        user.email = form.email.data
+        user.is_admin = form.is_admin.data
+        
+        if form.password.data:
+            user.set_password(form.password.data)
+            
+        db.session.commit()
+        flash('User updated successfully.', 'success')
+        return redirect(url_for('admin_users'))
+        
+    return render_template('admin_edit_user.html', form=form, user=user)
+
+@app.route('/admin/user/new', methods=['GET', 'POST'])
+@login_required
+def admin_new_user():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    form = AdminUserForm()
+    
+    if form.validate_on_submit():
+        if not form.password.data:
+            flash('Password is required when creating a new user.', 'danger')
+        else:
+            # Check if email already exists
+            if models.get_user_by_email(form.email.data):
+                flash('Email already registered.', 'danger')
+            else:
+                # Create new user
+                user = models.create_user(
+                    name=form.name.data,
+                    email=form.email.data,
+                    password=form.password.data,
+                    is_admin=form.is_admin.data
+                )
+                
+                if user:
+                    flash('User created successfully.', 'success')
+                    return redirect(url_for('admin_users'))
+                else:
+                    flash('Error creating user.', 'danger')
+    
+    return render_template('admin_new_user.html', form=form)
+
 @app.route('/claim/<item_id>', methods=['POST'])
 @login_required
 def claim_item(item_id):
@@ -221,7 +326,7 @@ def claim_item(item_id):
         msg.body = f"""
         Dear {owner.name},
         
-        Your {item.item_type} item "{item.title}" has been claimed by another user.
+        Your {item.item_type} item "{item.title}" has been claimed by {current_user.name}.
         
         Please check your dashboard for more details and to get in touch with the claimer.
         
@@ -238,7 +343,169 @@ def claim_item(item_id):
     
     return jsonify({'success': True, 'message': 'Item claimed successfully'})
 
-@app.route('/profile')
+@app.route('/submit-proof/<item_id>', methods=['POST'])
+@login_required
+def submit_proof(item_id):
+    item = models.get_item_by_id(item_id)
+    if not item:
+        abort(404)
+    
+    # Check if item can be claimed
+    if item.status != 'verified':
+        flash('This item cannot be claimed. It may be pending verification or already claimed.', 'danger')
+        return redirect(url_for('item_details', item_id=item_id))
+    
+    # Check if user is not the item owner
+    if current_user.id == item.user_id:
+        flash('You cannot claim your own item.', 'danger')
+        return redirect(url_for('item_details', item_id=item_id))
+    
+    form = ProofOfOwnershipForm()
+    if form.validate_on_submit():
+        # Process evidence if uploaded
+        evidence_data = None
+        if form.evidence.data:
+            evidence_data = resize_and_convert_image(form.evidence.data.read())
+        
+        # Submit proof
+        proof = models.submit_proof(
+            item_id=item_id,
+            user_id=current_user.id,
+            description=form.description.data,
+            evidence=evidence_data
+        )
+        
+        # Notify the item owner
+        owner = models.get_user_by_id(item.user_id)
+        if owner:
+            # Create a message notifying the owner
+            models.create_message(
+                sender_id=current_user.id,
+                recipient_id=owner.id,
+                subject=f"Proof of Ownership: {item.title}",
+                content=f"""I have submitted proof of ownership for your {item.item_type} item "{item.title}".
+                
+Please check the proof and respond to this message. If you agree that this item belongs to me, please approve the claim.
+
+Proof Description:
+{form.description.data}
+
+Thank you,
+{current_user.name}"""
+            )
+        
+        flash('Your proof of ownership has been submitted.', 'success')
+        return redirect(url_for('item_details', item_id=item_id))
+    
+    return redirect(url_for('item_details', item_id=item_id))
+
+@app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
-    return render_template('profile.html', user=current_user)
+    form = ProfileUpdateForm()
+    
+    if request.method == 'GET':
+        # Pre-fill form with current user data
+        form.name.data = current_user.name
+        form.email.data = current_user.email
+    
+    if form.validate_on_submit():
+        # Verify current password
+        if not current_user.check_password(form.current_password.data):
+            flash('Current password is incorrect.', 'danger')
+            return render_template('profile.html', user=current_user, form=form)
+        
+        # Update profile
+        current_user.name = form.name.data
+        
+        # Update email if changed
+        if form.email.data != current_user.email:
+            # Check if email already exists
+            if models.get_user_by_email(form.email.data) and models.get_user_by_email(form.email.data).id != current_user.id:
+                flash('Email already registered by another user.', 'danger')
+                return render_template('profile.html', user=current_user, form=form)
+            current_user.email = form.email.data
+        
+        # Update password if provided
+        if form.new_password.data:
+            current_user.set_password(form.new_password.data)
+        
+        # Update profile picture if uploaded
+        if form.profile_picture.data:
+            current_user.profile_picture = resize_and_convert_image(form.profile_picture.data.read())
+        
+        db.session.commit()
+        flash('Your profile has been updated.', 'success')
+        return redirect(url_for('profile'))
+    
+    return render_template('profile.html', user=current_user, form=form)
+
+@app.route('/messages')
+@login_required
+def messages():
+    # Get user's messages
+    user_messages = models.get_user_messages(current_user.id)
+    
+    # Count unread messages
+    unread_count = models.count_unread_messages(current_user.id)
+    
+    return render_template('messages.html', messages=user_messages, unread_count=unread_count)
+
+@app.route('/messages/new', methods=['GET', 'POST'])
+@login_required
+def new_message():
+    form = MessageForm()
+    
+    if form.validate_on_submit():
+        # Get recipient
+        recipient = models.get_user_by_email(form.recipient_email.data)
+        if not recipient:
+            flash('Recipient email not found.', 'danger')
+            return render_template('new_message.html', form=form)
+        
+        # Create message
+        message = models.create_message(
+            sender_id=current_user.id,
+            recipient_id=recipient.id,
+            subject=form.subject.data,
+            content=form.content.data
+        )
+        
+        flash('Message sent successfully.', 'success')
+        return redirect(url_for('messages'))
+    
+    return render_template('new_message.html', form=form)
+
+@app.route('/messages/<int:message_id>', methods=['GET', 'POST'])
+@login_required
+def view_message(message_id):
+    message = models.Message.query.get_or_404(message_id)
+    
+    # Check if user is allowed to view this message
+    if message.recipient_id != current_user.id and message.sender_id != current_user.id:
+        abort(403)
+    
+    # Mark message as read if current user is the recipient
+    if message.recipient_id == current_user.id and not message.read:
+        models.mark_message_as_read(message_id)
+    
+    # Get the thread of messages
+    thread = models.get_message_thread(message_id)
+    
+    # Reply form
+    form = ReplyMessageForm()
+    
+    if form.validate_on_submit():
+        # Create reply
+        reply = models.create_message(
+            sender_id=current_user.id,
+            recipient_id=message.sender_id if message.recipient_id == current_user.id else message.recipient_id,
+            subject=f"Re: {message.subject}",
+            content=form.content.data,
+            parent_id=message.id if not message.parent_id else message.parent_id
+        )
+        
+        flash('Reply sent successfully.', 'success')
+        return redirect(url_for('view_message', message_id=message_id))
+    
+    return render_template('view_message.html', message=message, thread=thread, form=form)

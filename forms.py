@@ -1,5 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, TextAreaField, SelectField, FileField, HiddenField
+from flask_wtf.file import FileField, FileAllowed
+from wtforms import StringField, PasswordField, TextAreaField, SelectField, HiddenField
 from wtforms import DateField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
 
@@ -15,7 +16,21 @@ class RegistrationForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirm Password', 
                                      validators=[DataRequired(), EqualTo('password')])
+    profile_picture = FileField('Profile Picture (Optional)', 
+                              validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
     submit = SubmitField('Register')
+
+class ProfileUpdateForm(FlaskForm):
+    name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    profile_picture = FileField('Profile Picture', 
+                              validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
+    current_password = PasswordField('Current Password (required to confirm changes)')
+    new_password = PasswordField('New Password (leave blank to keep current)', 
+                                validators=[Length(min=6, message="Password must be at least 6 characters")])
+    confirm_new_password = PasswordField('Confirm New Password', 
+                                        validators=[EqualTo('new_password')])
+    submit = SubmitField('Update Profile')
 
 class ItemForm(FlaskForm):
     title = StringField('Item Title', validators=[DataRequired(), Length(min=3, max=100)])
@@ -32,7 +47,7 @@ class ItemForm(FlaskForm):
     date = DateField('Date Lost/Found', validators=[DataRequired()], format='%Y-%m-%d')
     location = StringField('Location', validators=[DataRequired(), Length(min=3, max=200)])
     contact_info = StringField('Contact Information', validators=[DataRequired(), Length(min=5, max=100)])
-    image = FileField('Image (Optional)')
+    image = FileField('Image (Optional)', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
     latitude = HiddenField('Latitude')
     longitude = HiddenField('Longitude')
     submit = SubmitField('Submit')
@@ -61,3 +76,29 @@ class SearchForm(FlaskForm):
         ('claimed', 'Claimed')
     ])
     submit = SubmitField('Search')
+
+class MessageForm(FlaskForm):
+    recipient_email = StringField('Recipient Email', validators=[DataRequired(), Email()])
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=3, max=100)])
+    content = TextAreaField('Message', validators=[DataRequired(), Length(min=5, max=2000)])
+    submit = SubmitField('Send Message')
+
+class ReplyMessageForm(FlaskForm):
+    content = TextAreaField('Reply', validators=[DataRequired(), Length(min=5, max=2000)])
+    submit = SubmitField('Send Reply')
+
+class ProofOfOwnershipForm(FlaskForm):
+    description = TextAreaField('Description of Proof', 
+                             validators=[DataRequired(), Length(min=10, max=1000)],
+                             description="Describe how you can prove this item belongs to you. Include unique identifiers, purchase details, or distinguishing marks.")
+    evidence = FileField('Evidence (Optional)', 
+                        validators=[FileAllowed(['jpg', 'png', 'jpeg', 'pdf'], 'Images or PDF only!')],
+                        description="Upload a photo or document that proves your ownership (receipt, unique markings, etc.)")
+    submit = SubmitField('Submit Proof')
+
+class AdminUserForm(FlaskForm):
+    name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[Length(min=6)])
+    is_admin = BooleanField('Admin Privileges')
+    submit = SubmitField('Save User')
