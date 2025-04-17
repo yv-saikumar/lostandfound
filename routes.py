@@ -86,6 +86,12 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
+@app.route('/reset-sessions')
+def reset_sessions():
+    logout_user()
+    flash('All sessions have been reset due to database migration. Please log in again.', 'warning')
+    return redirect(url_for('login'))
+
 @app.route('/dashboard')
 @login_required
 def dashboard():

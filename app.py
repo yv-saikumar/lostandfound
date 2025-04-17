@@ -65,7 +65,13 @@ import models
 # Set up user loader for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
-    return models.User.query.get(int(user_id))
+    try:
+        # Try to convert to int for new DB IDs
+        return models.User.query.get(int(user_id))
+    except ValueError:
+        # Handle old UUID strings by returning None - will require re-login
+        logger.warning(f"Attempted to load user with non-integer ID: {user_id}")
+        return None
 
 # Create all tables and default admin user
 with app.app_context():

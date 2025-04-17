@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}View Message - Lost and Found Portal{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">Message</h1>
+                <a href="{{ url_for('messages') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Inbox
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ message.subject }}</h5>
+                        <small>{{ message.created_at.strftime('%b %d, %Y %H:%M') }}</small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <strong>From:</strong> {{ message.sender.name }} ({{ message.sender.email }})
+                        </div>
+                        <div>
+                            <strong>To:</strong> {{ message.recipient.name }} ({{ message.recipient.email }})
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="message-content mb-4">
+                        {{ message.content|nl2br }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Message Thread -->
+            {% if thread|length > 1 %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Message Thread</h5>
+                </div>
+                <div class="card-body">
+                    <div class="message-thread">
+                        {% for reply in thread %}
+                            {% if reply.id != message.id %}  <!-- Skip the main message that's already shown above -->
+                            <div class="card mb-3 {% if reply.sender_id == current_user.id %}border-primary{% else %}border-secondary{% endif %}">
+                                <div class="card-header {% if reply.sender_id == current_user.id %}bg-primary{% else %}bg-secondary{% endif %} text-white">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>From:</strong> {{ reply.sender.name }}
+                                        </div>
+                                        <div>
+                                            <small>{{ reply.created_at.strftime('%b %d, %Y %H:%M') }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="message-content">
+                                        {{ reply.content|nl2br }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Reply Form -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-reply me-2"></i>Reply</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.content.label(class="form-label") }}
+                            {{ form.content(class="form-control", rows=5, placeholder="Type your reply here...") }}
+                            {% for error in form.content.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-grid">
+                            {{ form.submit(class="btn btn-success") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Add a custom filter for nl2br (newline to <br>) -->
+<script>
+    // This is a workaround since Jinja doesn't have nl2br by default
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.message-content').forEach(function(element) {
+            element.innerHTML = element.innerHTML.replace(/\n/g, '<br>');
+        });
+    });
+</script>
+{% endblock %}
