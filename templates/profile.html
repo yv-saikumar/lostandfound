@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Lost and Found Portal{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h1 class="mb-0">Your Profile</h1>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Profile Information -->
+        <div class="col-lg-4 mb-4 mb-lg-0">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-user-circle me-2"></i>Profile Information</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <div class="profile-icon bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                            <i class="fas fa-user fa-4x"></i>
+                        </div>
+                    </div>
+                    <h4 class="card-title">{{ user.name }}</h4>
+                    <p class="card-text text-muted">{{ user.email }}</p>
+                    
+                    <div class="mb-3">
+                        {% if user.is_admin %}
+                        <span class="badge bg-danger">Admin</span>
+                        {% else %}
+                        <span class="badge bg-secondary">User</span>
+                        {% endif %}
+                    </div>
+                    
+                    <p class="card-text small text-muted">
+                        <i class="fas fa-calendar-alt me-1"></i> Joined: {{ user.created_at.strftime('%B %d, %Y') }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Your Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center py-3">
+                                    <h5 class="card-title">Total Items</h5>
+                                    <p class="display-4">{{ user.items_reported|length }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center py-3">
+                                    <h5 class="card-title">Lost Items</h5>
+                                    {% set lost_count = 0 %}
+                                    {% for item_id in user.items_reported %}
+                                        {% set item = get_item_by_id(item_id) %}
+                                        {% if item and item.item_type == 'lost' %}
+                                            {% set lost_count = lost_count + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <p class="display-4">{{ lost_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center py-3">
+                                    <h5 class="card-title">Found Items</h5>
+                                    {% set found_count = 0 %}
+                                    {% for item_id in user.items_reported %}
+                                        {% set item = get_item_by_id(item_id) %}
+                                        {% if item and item.item_type == 'found' %}
+                                            {% set found_count = found_count + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <p class="display-4">{{ found_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5 class="mb-3">Recent Activity</h5>
+                        {% if user.items_reported %}
+                            <div class="list-group">
+                                {% for item_id in user.items_reported[:5] %}
+                                    {% set item = get_item_by_id(item_id) %}
+                                    {% if item %}
+                                    <a href="{{ url_for('item_details', item_id=item.id) }}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">
+                                                {% if item.item_type == 'lost' %}
+                                                <span class="text-danger"><i class="fas fa-search me-1"></i></span>
+                                                {% else %}
+                                                <span class="text-success"><i class="fas fa-hand-holding me-1"></i></span>
+                                                {% endif %}
+                                                {{ item.title }}
+                                            </h6>
+                                            <small>{{ item.created_at.strftime('%b %d, %Y') }}</small>
+                                        </div>
+                                        <p class="mb-1 small text-truncate">{{ item.description }}</p>
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <small class="text-muted">
+                                                <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                                            </small>
+                                            <small>
+                                                {% if item.status == 'pending' %}
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                                {% elif item.status == 'verified' %}
+                                                <span class="badge bg-info">Verified</span>
+                                                {% elif item.status == 'claimed' %}
+                                                <span class="badge bg-secondary">Claimed</span>
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </a>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> You haven't reported any items yet.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                        <i class="fas fa-th-list me-1"></i> View All Items
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+/* Custom variables */
+:root {
+    --lost-color: #dc3545;
+    --found-color: #28a745;
+    --pending-color: #ffc107;
+    --verified-color: #17a2b8;
+    --claimed-color: #6c757d;
+}
+
+/* General styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Item cards and listings */
+.item-img {
+    height: 200px;
+    object-fit: cover;
+}
+
+.item-placeholder {
+    height: 200px;
+}
+
+/* Status badges and indicators */
+.badge.bg-danger {
+    background-color: var(--lost-color) !important;
+}
+
+.badge.bg-success {
+    background-color: var(--found-color) !important;
+}
+
+.badge.bg-warning {
+    background-color: var(--pending-color) !important;
+}
+
+.badge.bg-info {
+    background-color: var(--verified-color) !important;
+}
+
+.badge.bg-secondary {
+    background-color: var(--claimed-color) !important;
+}
+
+/* Feature icons */
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Hero section */
+.hero-icon {
+    background-color: rgba(255, 255, 255, 0.1);
+    width: 150px;
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+/* Dashboard enhancements */
+.filter-btn.active {
+    font-weight: bold;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-title {
+        font-size: 1.25rem;
+    }
+    
+    .hero-icon {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+/* Map marker popup */
+.leaflet-popup-content {
+    margin: 8px 12px;
+    line-height: 1.5;
+}
+
+.leaflet-popup-content b {
+    display: block;
+    margin-bottom: 5px;
+}

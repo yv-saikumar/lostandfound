@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Lost and Found Portal - Home{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Banner -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-5">
+                    <div class="row align-items-center">
+                        <div class="col-md-7">
+                            <h1 class="display-4 fw-bold">Lost & Found Portal</h1>
+                            <p class="lead">SAI: Secure, Assist, Inform</p>
+                            <p>Reconnect with your lost belongings or help others find theirs. Our platform brings together people who have lost items and those who have found them.</p>
+                            <div class="mt-4">
+                                {% if current_user.is_authenticated %}
+                                <a href="{{ url_for('report_item', item_type='lost') }}" class="btn btn-light me-2">
+                                    <i class="fas fa-search me-1"></i> Report Lost Item
+                                </a>
+                                <a href="{{ url_for('report_item', item_type='found') }}" class="btn btn-outline-light">
+                                    <i class="fas fa-hand-holding me-1"></i> Report Found Item
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('login') }}" class="btn btn-light me-2">
+                                    <i class="fas fa-sign-in-alt me-1"></i> Login
+                                </a>
+                                <a href="{{ url_for('register') }}" class="btn btn-outline-light">
+                                    <i class="fas fa-user-plus me-1"></i> Register
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-5 d-none d-md-block text-center">
+                            <div class="hero-icon">
+                                <i class="fas fa-search-location fa-5x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">How It Works</h2>
+            <div class="row text-center">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-clipboard-list fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Report</h5>
+                            <p class="card-text">Report lost items or items you've found with detailed descriptions and photos.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-search fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Search</h5>
+                            <p class="card-text">Search for lost items or check if someone reported finding your belongings.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-handshake fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Connect</h5>
+                            <p class="card-text">Get connected with the person who found your item or who lost the item you found.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Lost Items -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">Recently Reported Lost Items</h2>
+            {% if lost_items %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for item in lost_items %}
+                <div class="col">
+                    <div class="card h-100">
+                        {% if item.image_data %}
+                        <img src="{{ item.image_data }}" class="card-img-top item-img" alt="{{ item.title }}">
+                        {% else %}
+                        <div class="card-img-top item-placeholder d-flex align-items-center justify-content-center bg-secondary text-white">
+                            <i class="fas fa-image fa-3x"></i>
+                        </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ item.title }}</h5>
+                            <p class="card-text text-truncate">{{ item.description }}</p>
+                            <p class="card-text"><small class="text-muted">
+                                <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                            </small></p>
+                            <p class="card-text"><small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i> {{ item.date.strftime('%B %d, %Y') }}
+                            </small></p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-danger">Lost</span>
+                                <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> No lost items reported yet.
+            </div>
+            {% endif %}
+            <div class="text-center mt-3">
+                <a href="{{ url_for('search') }}?item_type=lost" class="btn btn-outline-primary">View All Lost Items</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Found Items -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">Recently Reported Found Items</h2>
+            {% if found_items %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for item in found_items %}
+                <div class="col">
+                    <div class="card h-100">
+                        {% if item.image_data %}
+                        <img src="{{ item.image_data }}" class="card-img-top item-img" alt="{{ item.title }}">
+                        {% else %}
+                        <div class="card-img-top item-placeholder d-flex align-items-center justify-content-center bg-secondary text-white">
+                            <i class="fas fa-image fa-3x"></i>
+                        </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ item.title }}</h5>
+                            <p class="card-text text-truncate">{{ item.description }}</p>
+                            <p class="card-text"><small class="text-muted">
+                                <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                            </small></p>
+                            <p class="card-text"><small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i> {{ item.date.strftime('%B %d, %Y') }}
+                            </small></p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-success">Found</span>
+                                <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> No found items reported yet.
+            </div>
+            {% endif %}
+            <div class="text-center mt-3">
+                <a href="{{ url_for('search') }}?item_type=found" class="btn btn-outline-primary">View All Found Items</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card bg-dark">
+                <div class="card-body py-4">
+                    <h3 class="text-center mb-4">Portal Statistics</h3>
+                    <div class="row text-center">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="display-4 fw-bold text-primary">{{ lost_items|length }}</div>
+                            <p>Lost Items Reported</p>
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="display-4 fw-bold text-success">{{ found_items|length }}</div>
+                            <p>Found Items Reported</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="display-4 fw-bold text-info">{{ (lost_items + found_items)|selectattr('status', 'equalto', 'claimed')|list|length }}</div>
+                            <p>Items Successfully Claimed</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

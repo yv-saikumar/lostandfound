@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Lost and Found Portal{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-user-shield me-2"></i>Admin Dashboard</h1>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Admin Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3 mb-md-0">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body text-center py-3">
+                    <h5 class="card-title">Pending Items</h5>
+                    <p class="display-4">{{ pending_items|length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3 mb-md-0">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body text-center py-3">
+                    <h5 class="card-title">Verified Items</h5>
+                    {% set verified_count = (items|default([])|selectattr('status', 'equalto', 'verified')|list|length) %}
+                    <p class="display-4">{{ verified_count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3 mb-md-0">
+            <div class="card bg-secondary text-white h-100">
+                <div class="card-body text-center py-3">
+                    <h5 class="card-title">Claimed Items</h5>
+                    {% set claimed_count = (items|default([])|selectattr('status', 'equalto', 'claimed')|list|length) %}
+                    <p class="display-4">{{ claimed_count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body text-center py-3">
+                    <h5 class="card-title">Total Users</h5>
+                    {% set user_count = (users|default([])|length) %}
+                    <p class="display-4">{{ user_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Items for Verification -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Items Pending Verification</h5>
+                </div>
+                
+                <div class="card-body">
+                    {% if pending_items %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Date</th>
+                                    <th>Reported On</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pending_items %}
+                                <tr>
+                                    <td>
+                                        {% if item.item_type == 'lost' %}
+                                        <span class="badge bg-danger">Lost</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Found</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.title }}</td>
+                                    <td>{{ item.category|capitalize }}</td>
+                                    <td>{{ item.date.strftime('%b %d, %Y') }}</td>
+                                    <td>{{ item.created_at.strftime('%b %d, %Y %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-sm btn-primary me-1">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-success verify-btn" data-item-id="{{ item.id }}">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> No items pending verification at this time.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners to verify buttons
+        const verifyButtons = document.querySelectorAll('.verify-btn');
+        verifyButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = this.getAttribute('data-item-id');
+                if (confirm('Are you sure you want to verify this item?')) {
+                    fetch(`/admin/verify/${itemId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Item verified successfully!');
+                            // Remove the row from the table
+                            this.closest('tr').remove();
+                            
+                            // Update the pending count
+                            const pendingCountElement = document.querySelector('.display-4');
+                            const currentCount = parseInt(pendingCountElement.textContent);
+                            pendingCountElement.textContent = currentCount - 1;
+                            
+                            // If no more pending items, show the info message
+                            if (currentCount - 1 === 0) {
+                                const tableElement = document.querySelector('.table-responsive');
+                                tableElement.innerHTML = `
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i> No items pending verification at this time.
+                                    </div>
+                                `;
+                            }
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while verifying the item.');
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

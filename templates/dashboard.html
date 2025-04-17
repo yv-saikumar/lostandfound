@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Lost and Found Portal{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="mb-0">Your Dashboard</h1>
+                <div>
+                    <a href="{{ url_for('report_item', item_type='lost') }}" class="btn btn-danger me-2">
+                        <i class="fas fa-search me-1"></i> Report Lost Item
+                    </a>
+                    <a href="{{ url_for('report_item', item_type='found') }}" class="btn btn-success">
+                        <i class="fas fa-hand-holding me-1"></i> Report Found Item
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3 mb-md-0">
+            <div class="card h-100 bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-clipboard-list me-2"></i>Total Reported Items</h5>
+                    <p class="display-4">{{ items|length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+            <div class="card h-100 bg-danger text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-search me-2"></i>Lost Items</h5>
+                    <p class="display-4">{{ items|selectattr('item_type', 'equalto', 'lost')|list|length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 bg-success text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title"><i class="fas fa-hand-holding me-2"></i>Found Items</h5>
+                    <p class="display-4">{{ items|selectattr('item_type', 'equalto', 'found')|list|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Item Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Filter Your Items</h5>
+                    <div class="d-flex flex-wrap">
+                        <button class="btn btn-sm btn-outline-primary me-2 mb-2 filter-btn active" data-filter="all">
+                            All Items
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger me-2 mb-2 filter-btn" data-filter="lost">
+                            Lost Items
+                        </button>
+                        <button class="btn btn-sm btn-outline-success me-2 mb-2 filter-btn" data-filter="found">
+                            Found Items
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning me-2 mb-2 filter-btn" data-filter="pending">
+                            Pending Verification
+                        </button>
+                        <button class="btn btn-sm btn-outline-info me-2 mb-2 filter-btn" data-filter="verified">
+                            Verified
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary me-2 mb-2 filter-btn" data-filter="claimed">
+                            Claimed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Items List -->
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-3">Your Items</h2>
+            
+            {% if items %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Type</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Date</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr class="item-row" data-type="{{ item.item_type }}" data-status="{{ item.status }}">
+                            <td>
+                                {% if item.item_type == 'lost' %}
+                                <span class="badge bg-danger">Lost</span>
+                                {% else %}
+                                <span class="badge bg-success">Found</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.title }}</td>
+                            <td>{{ item.category|capitalize }}</td>
+                            <td>{{ item.date.strftime('%b %d, %Y') }}</td>
+                            <td>{{ item.location }}</td>
+                            <td>
+                                {% if item.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                                {% elif item.status == 'verified' %}
+                                <span class="badge bg-info">Verified</span>
+                                {% elif item.status == 'claimed' %}
+                                <span class="badge bg-secondary">Claimed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> You haven't reported any items yet. Use the buttons above to report a lost or found item.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Item filtering
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const itemRows = document.querySelectorAll('.item-row');
+        
+        filterButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Update active button
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                const filter = this.getAttribute('data-filter');
+                
+                // Show/hide rows based on filter
+                itemRows.forEach(row => {
+                    if (filter === 'all') {
+                        row.style.display = '';
+                    } else if (filter === 'lost' || filter === 'found') {
+                        row.style.display = row.getAttribute('data-type') === filter ? '' : 'none';
+                    } else {
+                        row.style.display = row.getAttribute('data-status') === filter ? '' : 'none';
+                    }
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

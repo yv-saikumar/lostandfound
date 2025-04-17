@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.title }} - Lost and Found Portal{% endblock %}
+
+{% block head %}
+<!-- Leaflet CSS for maps -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<style>
+    #map {
+        height: 300px;
+        width: 100%;
+        border-radius: 0.25rem;
+        margin-top: 1rem;
+    }
+    .item-image {
+        max-height: 500px;
+        object-fit: contain;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('search') }}">Search</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Item Details</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Item Details -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header {% if item.item_type == 'lost' %}bg-danger{% else %}bg-success{% endif %} text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        {% if item.item_type == 'lost' %}
+                        <i class="fas fa-search me-2"></i>Lost Item
+                        {% else %}
+                        <i class="fas fa-hand-holding me-2"></i>Found Item
+                        {% endif %}
+                    </h4>
+                    <span class="badge bg-light text-dark">
+                        {% if item.status == 'pending' %}
+                        Pending Verification
+                        {% elif item.status == 'verified' %}
+                        Verified
+                        {% elif item.status == 'claimed' %}
+                        Claimed
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="card-body">
+                    <h2 class="card-title mb-3">{{ item.title }}</h2>
+                    
+                    {% if item.image_data %}
+                    <div class="text-center mb-4">
+                        <img src="{{ item.image_data }}" class="img-fluid item-image" alt="{{ item.title }}">
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-info-circle me-2"></i>Details</h5>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Category:</span>
+                                    <strong>{{ item.category|capitalize }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Date {{ item.item_type }}:</span>
+                                    <strong>{{ item.date.strftime('%B %d, %Y') }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Location:</span>
+                                    <strong>{{ item.location }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Status:</span>
+                                    <strong>
+                                        {% if item.status == 'pending' %}
+                                        <span class="text-warning">Pending Verification</span>
+                                        {% elif item.status == 'verified' %}
+                                        <span class="text-success">Verified</span>
+                                        {% elif item.status == 'claimed' %}
+                                        <span class="text-secondary">Claimed</span>
+                                        {% endif %}
+                                    </strong>
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="col-md-6 mt-3 mt-md-0">
+                            <h5><i class="fas fa-calendar-alt me-2"></i>Timeline</h5>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Reported on:</span>
+                                    <strong>{{ item.created_at.strftime('%B %d, %Y %H:%M') }}</strong>
+                                </li>
+                                {% if item.status != 'pending' and item.verified_by %}
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Verified on:</span>
+                                    <strong>{{ item.created_at.strftime('%B %d, %Y %H:%M') }}</strong>
+                                </li>
+                                {% endif %}
+                                {% if item.status == 'claimed' and item.claimed_by %}
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Claimed on:</span>
+                                    <strong>{{ item.created_at.strftime('%B %d, %Y %H:%M') }}</strong>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h5><i class="fas fa-align-left me-2"></i>Description</h5>
+                    <div class="card mb-4">
+                        <div class="card-body bg-dark">
+                            <p class="card-text">{{ item.description }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if item.latitude and item.longitude %}
+                    <h5><i class="fas fa-map-marker-alt me-2"></i>Location on Map</h5>
+                    <div id="map"></div>
+                    {% endif %}
+                </div>
+                
+                {% if is_admin and item.status == 'pending' %}
+                <div class="card-footer bg-light">
+                    <button id="verify-btn" class="btn btn-success" data-item-id="{{ item.id }}">
+                        <i class="fas fa-check-circle me-1"></i> Verify This Item
+                    </button>
+                </div>
+                {% endif %}
+                
+                {% if current_user.is_authenticated and not is_owner and item.status == 'verified' %}
+                <div class="card-footer bg-light">
+                    <button id="claim-btn" class="btn btn-primary" data-item-id="{{ item.id }}">
+                        <i class="fas fa-hand-paper me-1"></i> Claim This Item
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Potential Matches Section -->
+            {% if potential_matches and is_owner %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>Potential Matches</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">We found potential matches for your {{ item.item_type }} item. Check them out below:</p>
+                    
+                    <div class="list-group">
+                        {% for match in potential_matches %}
+                        <a href="{{ url_for('item_details', item_id=match.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ match.title }}</h5>
+                                <small>{{ match.date.strftime('%b %d, %Y') }}</small>
+                            </div>
+                            <p class="mb-1 text-truncate">{{ match.description }}</p>
+                            <small>
+                                <i class="fas fa-map-marker-alt me-1"></i> {{ match.location }}
+                                <span class="ms-3 badge {% if match.item_type == 'lost' %}bg-danger{% else %}bg-success{% endif %}">
+                                    {{ match.item_type|capitalize }}
+                                </span>
+                            </small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Contact Info & Related Items -->
+        <div class="col-lg-4">
+            <!-- Contact Information -->
+            {% if item.status == 'verified' or is_owner or is_admin %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-address-card me-2"></i>Contact Information</h5>
+                </div>
+                <div class="card-body">
+                    {% if is_owner or is_admin %}
+                    <p class="card-text">{{ item.contact_info }}</p>
+                    {% if owner %}
+                    <hr>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-user-circle fa-3x text-secondary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">{{ owner.name }}</h6>
+                            <p class="mb-0 small text-muted">{{ owner.email }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <p class="card-text">To protect privacy, contact information is only shared when claiming this item.</p>
+                    <p class="mb-0">Click the "Claim This Item" button to initiate the claim process.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Related Items -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>Related Items</h5>
+                </div>
+                <div class="card-body">
+                    <!-- This would be populated with related items, but we'll add a placeholder -->
+                    <p class="card-text">Looking for similar items? Try searching with these keywords:</p>
+                    <div class="d-flex flex-wrap mb-3">
+                        {% for tag in item.title.split() + item.category.split('-') %}
+                        {% if tag|length > 3 %}
+                        <a href="{{ url_for('search') }}?query={{ tag }}" class="badge bg-primary text-decoration-none me-2 mb-2">{{ tag }}</a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    <a href="{{ url_for('search') }}?category={{ item.category }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="fas fa-search me-1"></i> Find Similar Items
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet JS for maps -->
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize map if coordinates are available
+        {% if item.latitude and item.longitude %}
+        const map = L.map('map').setView([{{ item.latitude }}, {{ item.longitude }}], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add marker at the item's location
+        const marker = L.marker([{{ item.latitude }}, {{ item.longitude }}]).addTo(map);
+        marker.bindPopup("<b>{{ item.title }}</b><br>{{ item.location }}").openPopup();
+        {% endif %}
+        
+        // Verify button functionality for admins
+        const verifyBtn = document.getElementById('verify-btn');
+        if (verifyBtn) {
+            verifyBtn.addEventListener('click', function() {
+                const itemId = this.getAttribute('data-item-id');
+                if (confirm('Are you sure you want to verify this item?')) {
+                    fetch(`/admin/verify/${itemId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Item verified successfully!');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while verifying the item.');
+                    });
+                }
+            });
+        }
+        
+        // Claim button functionality
+        const claimBtn = document.getElementById('claim-btn');
+        if (claimBtn) {
+            claimBtn.addEventListener('click', function() {
+                const itemId = this.getAttribute('data-item-id');
+                if (confirm('Are you sure you want to claim this item? This will notify the person who reported it.')) {
+                    fetch(`/claim/${itemId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Item claimed successfully! The owner will be notified.');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while claiming the item.');
+                    });
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

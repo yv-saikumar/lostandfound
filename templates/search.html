@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Search Items - Lost and Found Portal{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Search Lost & Found Items</h1>
+        </div>
+    </div>
+    
+    <!-- Search Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('search') }}">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-primary text-white">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    {{ form.query(class="form-control", placeholder="Search by title, description or location...") }}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                {{ form.category(class="form-select") }}
+                            </div>
+                            
+                            <div class="col-md-2">
+                                {{ form.item_type(class="form-select") }}
+                            </div>
+                            
+                            <div class="col-md-2">
+                                {{ form.status(class="form-select") }}
+                            </div>
+                            
+                            <div class="col-12">
+                                {{ form.submit(class="btn btn-primary") }}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search Results -->
+    <div class="row">
+        <div class="col-12">
+            {% if request.method == 'POST' %}
+                <h2 class="mb-3">Search Results</h2>
+                
+                {% if results %}
+                    <p class="text-muted mb-4">Found {{ results|length }} item(s) matching your search criteria.</p>
+                    
+                    <div class="row row-cols-1 row-cols-md-3 g-4">
+                        {% for item in results %}
+                        <div class="col">
+                            <div class="card h-100">
+                                {% if item.image_data %}
+                                <img src="{{ item.image_data }}" class="card-img-top item-img" alt="{{ item.title }}">
+                                {% else %}
+                                <div class="card-img-top item-placeholder d-flex align-items-center justify-content-center bg-secondary text-white" style="height: 180px;">
+                                    <i class="fas fa-image fa-3x"></i>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="badge {% if item.item_type == 'lost' %}bg-danger{% else %}bg-success{% endif %}">
+                                            {{ item.item_type|capitalize }}
+                                        </span>
+                                        <span class="badge {% if item.status == 'pending' %}bg-warning text-dark{% elif item.status == 'verified' %}bg-info{% else %}bg-secondary{% endif %}">
+                                            {{ item.status|capitalize }}
+                                        </span>
+                                    </div>
+                                    
+                                    <h5 class="card-title">{{ item.title }}</h5>
+                                    <p class="card-text text-truncate">{{ item.description }}</p>
+                                    
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-tag me-1"></i> {{ item.category|capitalize }}
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i> {{ item.date.strftime('%B %d, %Y') }}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="card-footer bg-transparent">
+                                    <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-primary w-100">
+                                        <i class="fas fa-eye me-1"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> No items found matching your search criteria.
+                    </div>
+                    
+                    <div class="card bg-dark">
+                        <div class="card-body">
+                            <h5 class="card-title">Search Tips</h5>
+                            <ul class="mb-0">
+                                <li>Try using more general terms</li>
+                                <li>Check your spelling</li>
+                                <li>Try searching by category only</li>
+                                <li>Remove filters to broaden your search</li>
+                            </ul>
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="row mb-5">
+                    <div class="col-md-6 mb-4 mb-md-0">
+                        <div class="card h-100 bg-danger text-white">
+                            <div class="card-body text-center py-4">
+                                <i class="fas fa-search fa-4x mb-3 opacity-75"></i>
+                                <h3 class="card-title">Lost Something?</h3>
+                                <p class="card-text">Search our database of found items to see if someone has found your belongings.</p>
+                                <button class="btn btn-outline-light" onclick="document.getElementById('item_type-2').value='found'; document.querySelector('form').submit();">
+                                    Search Found Items
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100 bg-success text-white">
+                            <div class="card-body text-center py-4">
+                                <i class="fas fa-hand-holding fa-4x mb-3 opacity-75"></i>
+                                <h3 class="card-title">Found Something?</h3>
+                                <p class="card-text">Search our database of lost items to help return the item to its rightful owner.</p>
+                                <button class="btn btn-outline-light" onclick="document.getElementById('item_type-2').value='lost'; document.querySelector('form').submit();">
+                                    Search Lost Items
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card bg-dark">
+                            <div class="card-body">
+                                <h4 class="card-title">Popular Categories</h4>
+                                <div class="row">
+                                    <div class="col-md-3 col-6 mb-3">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='electronics'; document.querySelector('form').submit();">
+                                            <i class="fas fa-laptop fa-2x mb-2"></i><br>
+                                            Electronics
+                                        </button>
+                                    </div>
+                                    <div class="col-md-3 col-6 mb-3">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='documents'; document.querySelector('form').submit();">
+                                            <i class="fas fa-file-alt fa-2x mb-2"></i><br>
+                                            Documents
+                                        </button>
+                                    </div>
+                                    <div class="col-md-3 col-6 mb-3">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='keys'; document.querySelector('form').submit();">
+                                            <i class="fas fa-key fa-2x mb-2"></i><br>
+                                            Keys
+                                        </button>
+                                    </div>
+                                    <div class="col-md-3 col-6 mb-3">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='bags'; document.querySelector('form').submit();">
+                                            <i class="fas fa-briefcase fa-2x mb-2"></i><br>
+                                            Bags
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
