@@ -8,12 +8,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask_migrate import Migrate
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO if os.environ.get('RENDER') else logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
+# Enable production mode if running on Render
+app.config['ENV'] = 'production' if os.environ.get('RENDER') else 'development'
+app.config['DEBUG'] = not os.environ.get('RENDER')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure maximum file upload size (25MB)
