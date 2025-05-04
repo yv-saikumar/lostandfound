@@ -11,7 +11,7 @@
                     <h4 class="mb-0"><i class="fas fa-user-plus me-2"></i>Register</h4>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" action="{{ url_for('register') }}">
+                    <form method="POST" action="{{ url_for('register') }}" enctype="multipart/form-data">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-3">
@@ -41,33 +41,86 @@
                                 {{ form.email(class="form-control", placeholder="Enter your email") }}
                             {% endif %}
                         </div>
-                        
+
                         <div class="mb-3">
-                            {{ form.password.label(class="form-label") }}
-                            {% if form.password.errors %}
-                                {{ form.password(class="form-control is-invalid") }}
+                            {{ form.phone_number.label(class="form-label") }}
+                            {% if form.phone_number.errors %}
+                                {{ form.phone_number(class="form-control is-invalid") }}
                                 <div class="invalid-feedback">
-                                    {% for error in form.password.errors %}
+                                    {% for error in form.phone_number.errors %}
                                         {{ error }}
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                {{ form.password(class="form-control", placeholder="Create a password") }}
+                                {{ form.phone_number(class="form-control", placeholder="Enter your phone number (optional)") }}
                             {% endif %}
                         </div>
                         
                         <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            <div class="input-group">
+                                {% if form.password.errors %}
+                                    {{ form.password(class="form-control is-invalid", id="password-field") }}
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password-field')">
+                                        <i class="fas fa-eye" id="password-field-icon"></i>
+                                    </button>
+                                    <div class="invalid-feedback">
+                                        {% for error in form.password.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ form.password(class="form-control", placeholder="Create a password", id="password-field") }}
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password-field')">
+                                        <i class="fas fa-eye" id="password-field-icon"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
                             {{ form.confirm_password.label(class="form-label") }}
-                            {% if form.confirm_password.errors %}
-                                {{ form.confirm_password(class="form-control is-invalid") }}
-                                <div class="invalid-feedback">
-                                    {% for error in form.confirm_password.errors %}
+                            <div class="input-group">
+                                {% if form.confirm_password.errors %}
+                                    {{ form.confirm_password(class="form-control is-invalid", id="confirm-password-field") }}
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('confirm-password-field')">
+                                        <i class="fas fa-eye" id="confirm-password-field-icon"></i>
+                                    </button>
+                                    <div class="invalid-feedback">
+                                        {% for error in form.confirm_password.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ form.confirm_password(class="form-control", placeholder="Confirm your password", id="confirm-password-field") }}
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('confirm-password-field')">
+                                        <i class="fas fa-eye" id="confirm-password-field-icon"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.profile_picture.label(class="form-label") }}
+                            {{ form.profile_picture(class="form-control") }}
+                            {% if form.profile_picture.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.profile_picture.errors %}
                                         {{ error }}
                                     {% endfor %}
                                 </div>
-                            {% else %}
-                                {{ form.confirm_password(class="form-control", placeholder="Confirm your password") }}
                             {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.email_notifications(class="form-check-input") }}
+                                {{ form.email_notifications.label(class="form-check-label") }}
+                            </div>
+                            <div class="form-check">
+                                {{ form.sms_notifications(class="form-check-input") }}
+                                {{ form.sms_notifications.label(class="form-check-label") }}
+                            </div>
                         </div>
                         
                         <div class="d-grid gap-2">

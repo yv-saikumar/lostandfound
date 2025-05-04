@@ -30,16 +30,24 @@
                         
                         <div class="mb-3">
                             {{ form.password.label(class="form-label") }}
-                            {% if form.password.errors %}
-                                {{ form.password(class="form-control is-invalid") }}
-                                <div class="invalid-feedback">
-                                    {% for error in form.password.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                {{ form.password(class="form-control", placeholder="Enter your password") }}
-                            {% endif %}
+                            <div class="input-group">
+                                {% if form.password.errors %}
+                                    {{ form.password(class="form-control is-invalid", id="password-field") }}
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password-field')">
+                                        <i class="fas fa-eye" id="password-field-icon"></i>
+                                    </button>
+                                    <div class="invalid-feedback">
+                                        {% for error in form.password.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ form.password(class="form-control", placeholder="Enter your password", id="password-field") }}
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password-field')">
+                                        <i class="fas fa-eye" id="password-field-icon"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
                         </div>
                         
                         <div class="mb-3 form-check">

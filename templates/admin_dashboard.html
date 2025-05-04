@@ -2,6 +2,10 @@
 
 {% block title %}Admin Dashboard{% endblock %}
 
+{% block head %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="row mb-4">
@@ -14,13 +18,16 @@
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="card shadow h-100">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Quick Actions</h5>
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-tasks me-2"></i>Quick Actions</h5>
                 </div>
                 <div class="card-body">
                     <div class="list-group">
                         <a href="{{ url_for('admin_users') }}" class="list-group-item list-group-item-action">
                             <i class="fas fa-users me-2"></i>Manage Users
+                        </a>
+                        <a href="{{ url_for('admin_categories') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-tags me-2"></i>Manage Categories
                         </a>
                         <a href="{{ url_for('search') }}" class="list-group-item list-group-item-action">
                             <i class="fas fa-search me-2"></i>Search Items
@@ -35,8 +42,8 @@
         
         <div class="col-md-8 mb-3">
             <div class="card shadow h-100">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-hourglass-half me-2"></i>Pending Items ({{ pending_items|length }})</h5>
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-hourglass-half me-2"></i>Pending Items ({{ pending_items|length }})</h5>
                 </div>
                 <div class="card-body">
                     {% if pending_items %}
@@ -90,32 +97,32 @@
     <div class="row">
         <div class="col-md-6 mb-3">
             <div class="card shadow h-100">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Statistics</h5>
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-chart-bar me-2"></i>Statistics</h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-4">
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 id="total-lost" class="mb-0">...</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 id="total-lost" class="mb-0 text-primary">...</h3>
                                 <p class="mb-0 text-secondary">Lost Items</p>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 id="total-found" class="mb-0">...</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 id="total-found" class="mb-0 text-success">...</h3>
                                 <p class="mb-0 text-secondary">Found Items</p>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 id="total-verified" class="mb-0">...</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 id="total-verified" class="mb-0 text-info">...</h3>
                                 <p class="mb-0 text-secondary">Verified Items</p>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 id="total-claimed" class="mb-0">...</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 id="total-claimed" class="mb-0 text-success">...</h3>
                                 <p class="mb-0 text-secondary">Claimed Items</p>
                             </div>
                         </div>
@@ -126,8 +133,8 @@
         
         <div class="col-md-6 mb-3">
             <div class="card shadow h-100">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-bell me-2"></i>Recent Activity</h5>
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-bell me-2"></i>Recent Activity</h5>
                 </div>
                 <div class="card-body">
                     <ul class="list-group">
@@ -177,7 +184,6 @@
 
 {% block scripts %}
 <script>
-// Verify item functionality
 document.addEventListener('DOMContentLoaded', function() {
     // Item verification
     const verifyButtons = document.querySelectorAll('.verify-item-btn');
@@ -195,20 +201,32 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function verifyItem(itemId, buttonElement) {
+    buttonElement.disabled = true;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    
+    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
     fetch(`/admin/verify/${itemId}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-        }
+            'X-CSRF-Token': token
+        },
+        credentials: 'same-origin'
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Show success message
-            alert(data.message);
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3';
+            toast.style.zIndex = '1050';
+            toast.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + data.message;
+            document.body.appendChild(toast);
             
             // Remove the row from the table
-            buttonElement.closest('tr').remove();
+            const row = buttonElement.closest('tr');
+            row.remove();
             
             // Update the count in the heading
             const pendingItemsCount = document.querySelectorAll('tbody tr').length;
@@ -225,26 +243,38 @@ function verifyItem(itemId, buttonElement) {
                 `;
             }
             
+            // Remove toast after 3 seconds
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+            
             // Refresh statistics
             fetchStatistics();
         } else {
-            // Show error message
-            alert('Error: ' + data.message);
+            throw new Error(data.message || 'Error verifying item');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('An error occurred while processing your request.');
+        buttonElement.disabled = false;
+        buttonElement.innerHTML = '<i class="fas fa-check"></i> Verify';
+        const errorMessage = error.message || 'An error occurred while verifying the item.';
+        alert(errorMessage);
     });
 }
 
 function fetchStatistics() {
-    // Placeholder - in a real implementation, you would fetch these from the server
-    // This is just for demonstration
-    document.getElementById('total-lost').textContent = "{{ (pending_items|selectattr('item_type', 'equalto', 'lost')|list|length) + 15 }}";
-    document.getElementById('total-found').textContent = "{{ (pending_items|selectattr('item_type', 'equalto', 'found')|list|length) + 23 }}";
-    document.getElementById('total-verified').textContent = "27";
-    document.getElementById('total-claimed').textContent = "12";
+    fetch('/admin/statistics')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-lost').textContent = data.total_lost || '0';
+            document.getElementById('total-found').textContent = data.total_found || '0';
+            document.getElementById('total-verified').textContent = data.total_verified || '0';
+            document.getElementById('total-claimed').textContent = data.total_claimed || '0';
+        })
+        .catch(error => {
+            console.error('Error fetching statistics:', error);
+        });
 }
 </script>
 {% endblock %}

@@ -20,11 +20,13 @@
     <div class="row mb-3">
         <div class="col">
             <div class="card shadow">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-user-cog me-2"></i>User Management</h5>
-                    <a href="{{ url_for('admin_new_user') }}" class="btn btn-light btn-sm">
-                        <i class="fas fa-user-plus me-1"></i> Add New User
-                    </a>
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-primary"><i class="fas fa-user-cog me-2"></i>User Management</h5>
+                        <a href="{{ url_for('admin_new_user') }}" class="btn btn-primary">
+                            <i class="fas fa-user-plus me-1"></i> Add New User
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -80,8 +82,8 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card shadow">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filter Options</h5>
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-filter me-2"></i>Filter Options</h5>
                 </div>
                 <div class="card-body">
                     <form method="GET" action="#" class="row g-3">
@@ -117,32 +119,32 @@
         
         <div class="col-md-6">
             <div class="card shadow">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>User Statistics</h5>
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-info-circle me-2"></i>User Statistics</h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-4">
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 class="mb-0">{{ users|length }}</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 class="mb-0 text-primary">{{ users|length }}</h3>
                                 <p class="mb-0 text-secondary">Total Users</p>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 class="mb-0">{{ users|selectattr('is_admin', 'equalto', true)|list|length }}</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 class="mb-0 text-danger">{{ users|selectattr('is_admin', 'equalto', true)|list|length }}</h3>
                                 <p class="mb-0 text-secondary">Admin Users</p>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 class="mb-0">{{ users|selectattr('sms_notifications', 'equalto', true)|list|length }}</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 class="mb-0 text-success">{{ users|selectattr('sms_notifications', 'equalto', true)|list|length }}</h3>
                                 <p class="mb-0 text-secondary">SMS Enabled</p>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 border rounded bg-light text-center">
-                                <h3 class="mb-0">{{ users|selectattr('created_at', 'ge', now - timedelta(days=30))|list|length }}</h3>
+                            <div class="p-3 border rounded bg-white text-center">
+                                <h3 class="mb-0 text-info">{{ users|selectattr('created_at', 'ge', now - timedelta(days=30))|list|length }}</h3>
                                 <p class="mb-0 text-secondary">New (30 days)</p>
                             </div>
                         </div>

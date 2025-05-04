@@ -109,7 +109,12 @@
                                 {% endif %}
                             </td>
                             <td>{{ item.title }}</td>
-                            <td>{{ item.category|capitalize }}</td>
+                            <td>
+                                {{ item.category|capitalize }}
+                                {% if item.other_category %}
+                                ({{ item.other_category }})
+                                {% endif %}
+                            </td>
                             <td>{{ item.date.strftime('%b %d, %Y') }}</td>
                             <td>{{ item.location }}</td>
                             <td>

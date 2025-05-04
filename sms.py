@@ -87,3 +87,29 @@ Lost & Found Portal: {submitter_name} has submitted proof of ownership for your 
 Login to review the proof and respond.
 """
     return send_sms(phone_number, message)
+
+def send_message_sms(phone_number, sender_name, subject, is_reply=False):
+    """Send SMS notification when a new message or reply is received"""
+    message_type = "reply to" if is_reply else "message"
+    message = f"""
+Lost & Found Portal: You have received a new {message_type} from {sender_name}
+Subject: {subject}
+Login to view and respond.
+"""
+    return send_sms(phone_number, message)
+
+def send_claim_approved_sms(phone_number, item):
+    """Send SMS notification when a claim is approved"""
+    message = f"""
+Lost & Found Portal: Your claim for the {item.item_type} item "{item.title}" has been approved.
+Login to arrange collection/return of the item.
+"""
+    return send_sms(phone_number, message)
+
+def send_claim_rejected_sms(phone_number, item):
+    """Send SMS notification when a claim is rejected"""
+    message = f"""
+Lost & Found Portal: Your claim for the {item.item_type} item "{item.title}" has been rejected.
+Login to view the rejection reason and submit a new claim if needed.
+"""
+    return send_sms(phone_number, message)

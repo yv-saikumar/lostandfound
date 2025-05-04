@@ -8,10 +8,35 @@ import os
 import sys
 from app import app, db
 import models
+from models import Category
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def create_default_categories():
+    """Create default categories if they don't exist"""
+    default_categories = [
+        'Electronics',
+        'Documents',
+        'Clothing',
+        'Accessories',
+        'Keys',
+        'Bags'
+    ]
+    
+    for category_name in default_categories:
+        if not Category.query.filter_by(name=category_name).first():
+            category = Category(name=category_name, is_active=True)
+            db.session.add(category)
+    
+    try:
+        db.session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error creating default categories: {e}")
+        db.session.rollback()
+        return False
 
 def setup_database():
     """Initialize database tables and create default admin user"""
@@ -30,6 +55,12 @@ def setup_database():
                 logger.info("Please change these credentials after first login!")
             else:
                 logger.info("Default admin user already exists")
+            
+            logger.info("Creating default categories...")
+            if create_default_categories():
+                logger.info("Default categories created successfully")
+            else:
+                logger.info("Default categories already exist")
             
             logger.info("Database setup completed successfully!")
             return True

@@ -1,200 +1,307 @@
 {% extends "base.html" %}
 
-{% block title %}Search Items - Lost and Found Portal{% endblock %}
+{% block title %}Search - Lost and Found Portal{% endblock %}
+
+{% block head %}
+<style>
+    .item-card {
+        height: 100%;
+        transition: transform 0.2s;
+    }
+    .item-card:hover {
+        transform: translateY(-5px);
+    }
+    .card-img-wrapper {
+        height: 200px;
+        overflow: hidden;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0,0,0,.125);
+        position: relative;
+    }
+    .card-img-top {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+    .item-placeholder {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+    }
+    .filters {
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    #map {
+        height: 300px;
+        border-radius: 0.375rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container py-4">
     <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">Search Lost & Found Items</h1>
-        </div>
-    </div>
-    
-    <!-- Search Form -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('search') }}">
-                        {{ form.hidden_tag() }}
-                        
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-primary text-white">
-                                        <i class="fas fa-search"></i>
-                                    </span>
-                                    {{ form.query(class="form-control", placeholder="Search by title, description or location...") }}
-                                </div>
-                            </div>
+        <!-- Filters Column -->
+        <div class="col-lg-3 mb-4">
+            <form method="GET" action="{{ url_for('search') }}" id="searchForm">
+                <div class="filters shadow-sm">
+                    <h5 class="mb-3">Search Filters</h5>
+                    
+                    <!-- Search Query -->
+                    <div class="mb-3">
+                        <label for="q" class="form-label">Keywords</label>
+                        <input type="text" class="form-control" id="q" name="q" value="{{ request.args.get('q', '') }}"
+                               placeholder="Search items...">
+                    </div>
+                    
+                    <!-- Item Type -->
+                    <div class="mb-3">
+                        <label class="form-label">Item Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="item_type" id="all" value=""
+                                   {% if not request.args.get('item_type') %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="all">All</label>
                             
-                            <div class="col-md-2">
-                                {{ form.category(class="form-select") }}
-                            </div>
+                            <input type="radio" class="btn-check" name="item_type" id="lost" value="lost"
+                                   {% if request.args.get('item_type') == 'lost' %}checked{% endif %}>
+                            <label class="btn btn-outline-danger" for="lost">Lost</label>
                             
-                            <div class="col-md-2">
-                                {{ form.item_type(class="form-select") }}
-                            </div>
-                            
-                            <div class="col-md-2">
-                                {{ form.status(class="form-select") }}
-                            </div>
-                            
-                            <div class="col-12">
-                                {{ form.submit(class="btn btn-primary") }}
-                            </div>
+                            <input type="radio" class="btn-check" name="item_type" id="found" value="found"
+                                   {% if request.args.get('item_type') == 'found' %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="found">Found</label>
                         </div>
-                    </form>
+                    </div>
+                    
+                    <!-- Category -->
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <select class="form-select" id="category" name="category">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.name }}" 
+                                    {% if request.args.get('category') == category.name %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Date Range -->
+                    <div class="mb-3">
+                        <label for="date_from" class="form-label">Date Range</label>
+                        <input type="date" class="form-control mb-2" id="date_from" name="date_from"
+                               value="{{ request.args.get('date_from', '') }}">
+                        <input type="date" class="form-control" id="date_to" name="date_to"
+                               value="{{ request.args.get('date_to', '') }}">
+                    </div>
+                    
+                    <!-- Location Based Search -->
+                    <div class="mb-3">
+                        <label class="form-label d-block">Location</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="useLocation" name="use_location"
+                                   {% if request.args.get('use_location') %}checked{% endif %}>
+                            <label class="form-check-label" for="useLocation">
+                                Search near me
+                            </label>
+                        </div>
+                        <div id="locationFields" class="mt-2" style="display: none;">
+                            <div id="map"></div>
+                            <input type="hidden" id="latitude" name="latitude" value="{{ request.args.get('latitude', '') }}">
+                            <input type="hidden" id="longitude" name="longitude" value="{{ request.args.get('longitude', '') }}">
+                            <input type="hidden" id="radius" name="radius" value="{{ request.args.get('radius', '10') }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i> Search
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Results Column -->
+        <div class="col-lg-9">
+            <!-- Results Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">
+                    {% if items %}
+                        {{ items|length }} Results Found
+                    {% else %}
+                        No Results Found
+                    {% endif %}
+                </h4>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-primary active" data-bs-toggle="view" data-view="grid">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="view" data-view="list">
+                        <i class="fas fa-list"></i>
+                    </button>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Search Results -->
-    <div class="row">
-        <div class="col-12">
-            {% if request.method == 'POST' %}
-                <h2 class="mb-3">Search Results</h2>
-                
-                {% if results %}
-                    <p class="text-muted mb-4">Found {{ results|length }} item(s) matching your search criteria.</p>
-                    
-                    <div class="row row-cols-1 row-cols-md-3 g-4">
-                        {% for item in results %}
-                        <div class="col">
-                            <div class="card h-100">
-                                {% if item.image_data %}
-                                <img src="{{ item.image_data }}" class="card-img-top item-img" alt="{{ item.title }}">
-                                {% else %}
-                                <div class="card-img-top item-placeholder d-flex align-items-center justify-content-center bg-secondary text-white" style="height: 180px;">
-                                    <i class="fas fa-image fa-3x"></i>
-                                </div>
-                                {% endif %}
-                                
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between mb-2">
-                                        <span class="badge {% if item.item_type == 'lost' %}bg-danger{% else %}bg-success{% endif %}">
-                                            {{ item.item_type|capitalize }}
-                                        </span>
-                                        <span class="badge {% if item.status == 'pending' %}bg-warning text-dark{% elif item.status == 'verified' %}bg-info{% else %}bg-secondary{% endif %}">
-                                            {{ item.status|capitalize }}
-                                        </span>
-                                    </div>
-                                    
-                                    <h5 class="card-title">{{ item.title }}</h5>
-                                    <p class="card-text text-truncate">{{ item.description }}</p>
-                                    
-                                    <div class="mb-2">
-                                        <small class="text-muted">
-                                            <i class="fas fa-tag me-1"></i> {{ item.category|capitalize }}
-                                        </small>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <small class="text-muted">
-                                            <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
-                                        </small>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <small class="text-muted">
-                                            <i class="fas fa-calendar me-1"></i> {{ item.date.strftime('%B %d, %Y') }}
-                                        </small>
-                                    </div>
-                                </div>
-                                
-                                <div class="card-footer bg-transparent">
-                                    <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-primary w-100">
-                                        <i class="fas fa-eye me-1"></i> View Details
-                                    </a>
-                                </div>
+            
+            <!-- Results Grid -->
+            {% if items %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4" id="resultsContainer">
+                {% for item in items %}
+                <div class="col">
+                    <div class="card h-100 item-card shadow-sm">
+                        {% if item.images %}
+                        <div class="card-img-wrapper">
+                            <img src="{{ item.images[0].data }}" 
+                                 class="card-img-top" 
+                                 alt="{{ item.title }}">
+                        </div>
+                        {% else %}
+                        <div class="card-img-wrapper">
+                            <div class="item-placeholder">
+                                <i class="fas fa-image fa-3x text-secondary"></i>
                             </div>
                         </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i> No items found matching your search criteria.
-                    </div>
-                    
-                    <div class="card bg-dark">
+                        {% endif %}
+                        
                         <div class="card-body">
-                            <h5 class="card-title">Search Tips</h5>
-                            <ul class="mb-0">
-                                <li>Try using more general terms</li>
-                                <li>Check your spelling</li>
-                                <li>Try searching by category only</li>
-                                <li>Remove filters to broaden your search</li>
-                            </ul>
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">{{ item.title }}</h5>
+                                <span class="badge {% if item.item_type == 'lost' %}bg-danger{% else %}bg-success{% endif %}">
+                                    {{ item.item_type|capitalize }}
+                                </span>
+                            </div>
+                            
+                            <p class="card-text text-muted small mb-2">
+                                {{ item.description|truncate(100) }}
+                            </p>
+                            
+                            <div class="text-muted small mb-3">
+                                <p class="mb-1">
+                                    <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                                    {% if distance_info and distance_info[item.id] %}
+                                    <span class="text-primary">({{ "%.1f"|format(distance_info[item.id]) }} km)</span>
+                                    {% endif %}
+                                </p>
+                                <p class="mb-0">
+                                    <i class="fas fa-calendar me-1"></i> {{ item.date.strftime('%B %d, %Y') }}
+                                </p>
+                            </div>
+                            
+                            <a href="{{ url_for('item_details', item_id=item.id) }}" class="btn btn-primary btn-sm stretched-link">
+                                View Details
+                            </a>
                         </div>
                     </div>
-                {% endif %}
+                </div>
+                {% endfor %}
+            </div>
             {% else %}
-                <div class="row mb-5">
-                    <div class="col-md-6 mb-4 mb-md-0">
-                        <div class="card h-100 bg-danger text-white">
-                            <div class="card-body text-center py-4">
-                                <i class="fas fa-search fa-4x mb-3 opacity-75"></i>
-                                <h3 class="card-title">Lost Something?</h3>
-                                <p class="card-text">Search our database of found items to see if someone has found your belongings.</p>
-                                <button class="btn btn-outline-light" onclick="document.getElementById('item_type-2').value='found'; document.querySelector('form').submit();">
-                                    Search Found Items
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card h-100 bg-success text-white">
-                            <div class="card-body text-center py-4">
-                                <i class="fas fa-hand-holding fa-4x mb-3 opacity-75"></i>
-                                <h3 class="card-title">Found Something?</h3>
-                                <p class="card-text">Search our database of lost items to help return the item to its rightful owner.</p>
-                                <button class="btn btn-outline-light" onclick="document.getElementById('item_type-2').value='lost'; document.querySelector('form').submit();">
-                                    Search Lost Items
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card bg-dark">
-                            <div class="card-body">
-                                <h4 class="card-title">Popular Categories</h4>
-                                <div class="row">
-                                    <div class="col-md-3 col-6 mb-3">
-                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='electronics'; document.querySelector('form').submit();">
-                                            <i class="fas fa-laptop fa-2x mb-2"></i><br>
-                                            Electronics
-                                        </button>
-                                    </div>
-                                    <div class="col-md-3 col-6 mb-3">
-                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='documents'; document.querySelector('form').submit();">
-                                            <i class="fas fa-file-alt fa-2x mb-2"></i><br>
-                                            Documents
-                                        </button>
-                                    </div>
-                                    <div class="col-md-3 col-6 mb-3">
-                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='keys'; document.querySelector('form').submit();">
-                                            <i class="fas fa-key fa-2x mb-2"></i><br>
-                                            Keys
-                                        </button>
-                                    </div>
-                                    <div class="col-md-3 col-6 mb-3">
-                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="document.getElementById('category-2').value='bags'; document.querySelector('form').submit();">
-                                            <i class="fas fa-briefcase fa-2x mb-2"></i><br>
-                                            Bags
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> 
+                No items found matching your search criteria. Try adjusting your filters.
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize map if location search is enabled
+document.addEventListener('DOMContentLoaded', function() {
+    const useLocationCheckbox = document.getElementById('useLocation');
+    const locationFields = document.getElementById('locationFields');
+    
+    function toggleLocationFields() {
+        locationFields.style.display = useLocationCheckbox.checked ? 'block' : 'none';
+        if (useLocationCheckbox.checked && !map) {
+            initializeMap();
+        }
+    }
+    
+    useLocationCheckbox.addEventListener('change', toggleLocationFields);
+    toggleLocationFields();
+    
+    let map;
+    let marker;
+    
+    function initializeMap() {
+        // Initialize the map
+        const defaultLat = parseFloat(document.getElementById('latitude').value) || 20.5937;
+        const defaultLng = parseFloat(document.getElementById('longitude').value) || 78.9629;
+        
+        map = L.map('map').setView([defaultLat, defaultLng], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add marker if coordinates exist
+        if (document.getElementById('latitude').value && document.getElementById('longitude').value) {
+            marker = L.marker([defaultLat, defaultLng]).addTo(map);
+        }
+        
+        // Update marker and coordinates on map click
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+        });
+        
+        // Try to get user's location
+        if (navigator.geolocation && !document.getElementById('latitude').value) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                map.setView([lat, lng], 13);
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lng;
+                
+                if (marker) {
+                    marker.setLatLng([lat, lng]);
+                } else {
+                    marker = L.marker([lat, lng]).addTo(map);
+                }
+            });
+        }
+    }
+    
+    // View toggle functionality
+    const viewButtons = document.querySelectorAll('[data-bs-toggle="view"]');
+    const resultsContainer = document.getElementById('resultsContainer');
+    
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const view = this.dataset.view;
+            
+            // Update active state
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update layout
+            if (view === 'list') {
+                resultsContainer.classList.remove('row-cols-md-2', 'row-cols-xl-3');
+            } else {
+                resultsContainer.classList.add('row-cols-md-2', 'row-cols-xl-3');
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

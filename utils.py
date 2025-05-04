@@ -1,137 +1,292 @@
+import os
 import base64
 from io import BytesIO
-from PIL import Image
-from flask_mail import Message
-from app import mail
+from PIL import Image, ExifTags, ImageOps
+from PIL.ExifTags import TAGS
+from datetime import datetime, timedelta
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from geopy.distance import geodesic
+from werkzeug.utils import secure_filename
+from flask import current_app
+import uuid
 
-def resize_and_convert_image(file_data, max_size=(800, 800)):
-    """Resize the image and convert to base64 string"""
+
+def process_images(image_files, max_size=(800, 800), quality=85):
+    """Process multiple images for storage"""
+    processed_images = []
+    
+    for image_file in image_files:
+        if not image_file:
+            continue
+            
+        try:
+            # Generate a secure filename with UUID
+            original_filename = secure_filename(image_file.filename)
+            file_extension = os.path.splitext(original_filename)[1].lower()
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            
+            # Open and process image
+            image = Image.open(image_file)
+            
+            # Extract EXIF data
+            exif_data = {}
+            if hasattr(image, '_getexif') and image._getexif():
+                for tag_id in image._getexif():
+                    tag = TAGS.get(tag_id, tag_id)
+                    exif_data[tag] = image._getexif()[tag_id]
+            
+            # Auto-orient image based on EXIF
+            image = ImageOps.exif_transpose(image)
+            
+            # Resize maintaining aspect ratio
+            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Save to buffer for base64 encoding
+            buffer = BytesIO()
+            image.save(buffer, format='JPEG', quality=quality, optimize=True)
+            img_str = base64.b64encode(buffer.getvalue()).decode()
+            
+            # Add proper data URI prefix for web display
+            mime_type = 'image/jpeg'
+            img_data = f'data:{mime_type};base64,{img_str}'
+            
+            processed_images.append({
+                'filename': unique_filename,
+                'data': img_data,
+                'exif': exif_data
+            })
+            
+        except Exception as e:
+            current_app.logger.error(f"Error processing image {image_file.filename}: {str(e)}")
+            continue
+    
+    return processed_images
+
+def generate_tags(title, description, category):
+    """Generate searchable tags from item data"""
     try:
-        # Open image from binary data
-        img = Image.open(BytesIO(file_data))
+        # Combine text
+        text = f"{title} {description} {category}"
         
-        # Resize image while maintaining aspect ratio
-        img.thumbnail(max_size)
+        # Tokenize (using simple split as fallback if NLTK fails)
+        try:
+            tokens = word_tokenize(text.lower())
+        except LookupError:
+            # Fallback to simple word splitting if NLTK fails
+            tokens = text.lower().split()
         
-        # Save to buffer
-        buffer = BytesIO()
-        img.save(buffer, format="JPEG")
-        buffer.seek(0)
+        # Remove stopwords and lemmatize
+        try:
+            stop_words = set(stopwords.words('english'))
+        except LookupError:
+            # Fallback to a basic set of stopwords
+            stop_words = {'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for',
+                         'from', 'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on',
+                         'that', 'the', 'to', 'was', 'were', 'will', 'with'}
         
-        # Convert to base64
-        img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        return f"data:image/jpeg;base64,{img_str}"
+        try:
+            lemmatizer = WordNetLemmatizer()
+            tags = []
+            for token in tokens:
+                if token not in stop_words and token.isalnum():
+                    lemma = lemmatizer.lemmatize(token)
+                    if len(lemma) > 2:  # Only include words longer than 2 characters
+                        tags.append(lemma)
+        except LookupError:
+            # Fallback to just filtering without lemmatization
+            tags = [token for token in tokens if token not in stop_words 
+                   and token.isalnum() and len(token) > 2]
+        
+        # Remove duplicates and sort
+        return sorted(list(set(tags)))
     except Exception as e:
-        print(f"Error processing image: {e}")
+        print(f"Error generating tags: {e}")
+        # Return basic tags if everything fails
+        return [w.lower() for w in text.split() if len(w) > 2]
+
+def calculate_expiry_date(days_str):
+    """Calculate expiry date based on selected duration"""
+    if days_str == 'never':
         return None
+        
+    days = int(days_str)
+    return datetime.utcnow().date() + timedelta(days=days)
 
-def send_verification_email(user_email, item):
-    """Send email notification when an item is verified"""
-    msg = Message(
-        subject="Your Item Has Been Verified - Lost and Found Portal",
-        recipients=[user_email]
-    )
+def find_nearby_items(latitude, longitude, max_distance=10):
+    """Find items within max_distance km of coordinates"""
+    from models import Item
     
-    msg.body = f"""
-    Dear User,
+    nearby_items = []
+    all_items = Item.query.filter(
+        Item.latitude.isnot(None),
+        Item.longitude.isnot(None),
+        Item.status == 'verified'
+    ).all()
     
-    Your {item.item_type} item "{item.title}" has been verified by our admin team.
+    for item in all_items:
+        distance = geodesic(
+            (latitude, longitude),
+            (item.latitude, item.longitude)
+        ).kilometers
+        
+        if distance <= max_distance:
+            item_dict = item.to_dict()
+            item_dict['distance'] = round(distance, 2)
+            nearby_items.append(item_dict)
     
-    Item Details:
-    - Description: {item.description}
-    - Category: {item.category}
-    - Date: {item.date}
-    - Location: {item.location}
-    
-    You can now view this item on the public listing.
-    
-    Thank you for using our Lost and Found Portal!
-    
-    Best regards,
-    The Lost and Found Team
-    """
-    
-    try:
-        mail.send(msg)
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
-
-def send_match_notification(user_email, matched_item):
-    """Send email notification when a potential match is found"""
-    item_type_opposite = "found" if matched_item.item_type == "lost" else "lost"
-    
-    msg = Message(
-        subject="Potential Item Match Found - Lost and Found Portal",
-        recipients=[user_email]
-    )
-    
-    msg.body = f"""
-    Dear User,
-    
-    We have found a potential match for your {item_type_opposite} item!
-    
-    Matched Item Details:
-    - Title: {matched_item.title}
-    - Description: {matched_item.description}
-    - Category: {matched_item.category}
-    - Date: {matched_item.date}
-    - Location: {matched_item.location}
-    
-    Please log in to your account to view more details and make a claim if this is your item.
-    
-    Best regards,
-    The Lost and Found Team
-    """
-    
-    try:
-        mail.send(msg)
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
+    return sorted(nearby_items, key=lambda x: x['distance'])
 
 def find_potential_matches(item):
-    """Find potential matches for an item based on category, title, and description"""
-    from models import get_all_items
+    """Find potential matches using tags and location"""
+    from models import Item
     
     # Get opposite item type
-    opposite_type = "found" if item.item_type == "lost" else "lost"
+    opposite_type = 'found' if item.item_type == 'lost' else 'lost'
     
-    # Get all items of the opposite type
-    all_items = get_all_items()
-    opposite_items = [i for i in all_items if i.item_type == opposite_type and i.status == 'verified']
+    # Get all verified items of opposite type
+    potential_matches = Item.query.filter_by(
+        item_type=opposite_type,
+        status='verified'
+    ).all()
     
-    # Score each item for potential match
-    potential_matches = []
-    for other_item in opposite_items:
+    # Score each item for matching
+    scored_matches = []
+    for match in potential_matches:
         score = 0
         
-        # Same category
-        if other_item.category == item.category:
-            score += 3
+        # Check if tags overlap
+        if item.tags and match.tags:
+            common_tags = set(item.tags) & set(match.tags)
+            score += len(common_tags) * 10
         
-        # Title similarity (simple check for common words)
-        title_words = set(item.title.lower().split())
-        other_title_words = set(other_item.title.lower().split())
-        common_title_words = title_words.intersection(other_title_words)
-        score += len(common_title_words)
-        
-        # Description similarity
-        desc_words = set(item.description.lower().split())
-        other_desc_words = set(other_item.description.lower().split())
-        common_desc_words = desc_words.intersection(other_desc_words)
-        score += len(common_desc_words) * 0.5
-        
-        # Location similarity
-        if item.location.lower() in other_item.location.lower() or other_item.location.lower() in item.location.lower():
-            score += 2
+        # Check location if coordinates available
+        if (item.latitude and item.longitude and 
+            match.latitude and match.longitude):
+            distance = geodesic(
+                (item.latitude, item.longitude),
+                (match.latitude, match.longitude)
+            ).kilometers
             
-        # Add to potential matches if score is high enough
-        if score >= 3:
-            potential_matches.append((other_item, score))
+            # Add distance-based score (closer = higher score)
+            if distance <= 1:  # Within 1km
+                score += 50
+            elif distance <= 5:  # Within 5km
+                score += 30
+            elif distance <= 10:  # Within 10km
+                score += 20
+        
+        # Check category
+        if item.category == match.category:
+            score += 20
+        
+        # Check date proximity (within 7 days)
+        date_diff = abs((item.date - match.date).days)
+        if date_diff <= 7:
+            score += max(0, 20 - (date_diff * 2))  # Decrease score by 2 for each day difference
+        
+        if score > 0:
+            scored_matches.append((match, score))
     
-    # Sort by score (highest first) and return
-    potential_matches.sort(key=lambda x: x[1], reverse=True)
-    return [match[0] for match in potential_matches[:5]]  # Return top 5 matches
+    # Sort by score and return top matches
+    scored_matches.sort(key=lambda x: x[1], reverse=True)
+    return [match for match, score in scored_matches[:5]]
+
+def send_verification_email(recipient_email, item):
+    """Send email notification when an item is verified"""
+    from flask_mail import Message
+    from app import mail
+    
+    msg = Message(
+        subject=f"Your Item Has Been Verified - {item.title}",
+        recipients=[recipient_email]
+    )
+    msg.body = f"""
+Dear {item.owner.name},
+
+Your {item.item_type} item "{item.title}" has been verified by our admin team and is now visible to other users.
+
+Item Details:
+- Type: {item.item_type.capitalize()}
+- Category: {item.category}
+- Location: {item.location}
+- Date: {item.date.strftime('%B %d, %Y')}
+
+You will be notified if someone claims this item or if we find potential matches.
+
+Thank you for using our Lost and Found Portal!
+
+Best regards,
+Lost and Found Portal Team
+    """
+    
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send verification email: {e}")
+
+def send_match_notification(recipient_email, matched_item):
+    """Send email notification for potential item match"""
+    from flask_mail import Message
+    from app import mail
+    
+    msg = Message(
+        subject=f"Potential Match Found - {matched_item.title}",
+        recipients=[recipient_email]
+    )
+    msg.body = f"""
+Dear {matched_item.owner.name},
+
+We found a potential match for your {matched_item.item_type} item "{matched_item.title}"!
+
+Please log in to your account to view the potential match and check if it's your item.
+
+Item Details:
+- Type: {matched_item.item_type.capitalize()}
+- Category: {matched_item.category}
+- Location: {matched_item.location}
+- Date: {matched_item.date.strftime('%B %d, %Y')}
+
+Thank you for using our Lost and Found Portal!
+
+Best regards,
+Lost and Found Portal Team
+    """
+    
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send match notification email: {e}")
+
+def send_message_email(recipient_email, sender_name, subject):
+    """Send email notification when a new message is received"""
+    from flask_mail import Message
+    from app import mail
+    
+    msg = Message(
+        subject=f"New Message from {sender_name} - Lost and Found Portal",
+        recipients=[recipient_email]
+    )
+    msg.body = f"""
+Dear User,
+
+You have received a new message from {sender_name}.
+
+Subject: {subject}
+
+Please log in to your account to view the message and reply.
+
+Best regards,
+Lost and Found Portal Team
+    """
+    
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send message notification email: {e}")

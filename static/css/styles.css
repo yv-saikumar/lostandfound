@@ -5,6 +5,9 @@
     --pending-color: #ffc107;
     --verified-color: #17a2b8;
     --claimed-color: #6c757d;
+    --bg-light: #ffffff;
+    --bg-light-secondary: #f8f9fa;
+    --border-color: #dee2e6;
 }
 
 /* General styles */
@@ -12,20 +15,32 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background-color: var(--bg-light-secondary);
+    color: #212529;
 }
 
 main {
     flex: 1;
 }
 
+.card {
+    background-color: var(--bg-light);
+    border: 1px solid var(--border-color);
+}
+
 /* Item cards and listings */
 .item-img {
     height: 200px;
-    object-fit: cover;
+    object-fit: contain;
+    background-color: var(--bg-light-secondary);
 }
 
 .item-placeholder {
     height: 200px;
+    background-color: var(--bg-light-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Status badges and indicators */
@@ -54,16 +69,17 @@ main {
     width: 80px;
     height: 80px;
     margin: 0 auto;
-    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    background-color: var(--bg-light-secondary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid var(--border-color);
 }
 
 /* Hero section */
 .hero-icon {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.2);
     width: 150px;
     height: 150px;
     display: flex;

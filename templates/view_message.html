@@ -37,8 +37,17 @@
                     <hr>
                     
                     <div class="message-content mb-4">
-                        {{ message.content|nl2br }}
+                        {{ message.content|nl2br|safe }}
                     </div>
+
+                    {% if message.image %}
+                    <div class="message-image mb-4">
+                        <img src="data:image/jpeg;base64,{{ message.image }}" 
+                             class="img-fluid rounded" 
+                             style="max-width: 100%; max-height: 400px;" 
+                             alt="Attached image">
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             
@@ -51,7 +60,7 @@
                 <div class="card-body">
                     <div class="message-thread">
                         {% for reply in thread %}
-                            {% if reply.id != message.id %}  <!-- Skip the main message that's already shown above -->
+                            {% if reply.id != message.id %}
                             <div class="card mb-3 {% if reply.sender_id == current_user.id %}border-primary{% else %}border-secondary{% endif %}">
                                 <div class="card-header {% if reply.sender_id == current_user.id %}bg-primary{% else %}bg-secondary{% endif %} text-white">
                                     <div class="d-flex justify-content-between align-items-center">
@@ -67,6 +76,14 @@
                                     <div class="message-content">
                                         {{ reply.content|nl2br }}
                                     </div>
+                                    {% if reply.image %}
+                                    <div class="message-image mt-3">
+                                        <img src="data:image/jpeg;base64,{{ reply.image }}" 
+                                             class="img-fluid rounded" 
+                                             style="max-width: 100%; max-height: 300px;" 
+                                             alt="Attached image">
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                             {% endif %}
@@ -82,7 +99,7 @@
                     <h5 class="mb-0"><i class="fas fa-reply me-2"></i>Reply</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-3">
@@ -91,6 +108,16 @@
                             {% for error in form.content.errors %}
                                 <div class="text-danger">{{ error }}</div>
                             {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.image.label(class="form-label") }}
+                            {{ form.image(class="form-control") }}
+                            {% for error in form.image.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-text">Upload an image (JPG, PNG only, max 5MB)</div>
+                            <div id="image-preview" class="mt-2" style="max-width: 300px;"></div>
                         </div>
                         
                         <div class="d-grid">
@@ -105,13 +132,28 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Add a custom filter for nl2br (newline to <br>) -->
 <script>
-    // This is a workaround since Jinja doesn't have nl2br by default
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.message-content').forEach(function(element) {
-            element.innerHTML = element.innerHTML.replace(/\n/g, '<br>');
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.getElementById('image');
+    const previewDiv = document.getElementById('image-preview');
+    
+    imageInput.addEventListener('change', function() {
+        previewDiv.innerHTML = '';
+        if (this.files && this.files[0]) {
+            const img = document.createElement('img');
+            img.className = 'img-fluid rounded';
+            img.file = this.files[0];
+            previewDiv.appendChild(img);
+            
+            const reader = new FileReader();
+            reader.onload = (function(aImg) { 
+                return function(e) { 
+                    aImg.src = e.target.result; 
+                }; 
+            })(img);
+            reader.readAsDataURL(this.files[0]);
+        }
     });
+});
 </script>
 {% endblock %}

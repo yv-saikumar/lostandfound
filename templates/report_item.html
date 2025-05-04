@@ -3,14 +3,51 @@
 {% block title %}Report {{ item_type|capitalize }} Item - Lost and Found Portal{% endblock %}
 
 {% block head %}
-<!-- Leaflet CSS for maps -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<!-- Leaflet CSS and JavaScript -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <style>
     #map {
-        height: 300px;
+        height: 400px;
         width: 100%;
         margin-bottom: 1rem;
         border-radius: 0.25rem;
+        border: 1px solid #dee2e6;
+        z-index: 1;
+    }
+    .image-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .image-preview-item {
+        width: 150px;
+        height: 150px;
+        position: relative;
+    }
+    .image-preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        background-color: #f8f9fa;
+    }
+    .image-preview-item .remove-image {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 14px;
     }
 </style>
 {% endblock %}
@@ -62,7 +99,7 @@
                         </div>
                         
                         <div class="row mb-3">
-                            <div class="col-md-6 mb-3 mb-md-0">
+                            <div class="col-md-6 mb-3">
                                 {{ form.category.label(class="form-label") }}
                                 {% if form.category.errors %}
                                     {{ form.category(class="form-select is-invalid") }}
@@ -76,6 +113,20 @@
                                 {% endif %}
                             </div>
                             
+                            <div class="col-md-6 mb-3" id="other-category-container" style="display: none;">
+                                {{ form.other_category.label(class="form-label") }}
+                                {% if form.other_category.errors %}
+                                    {{ form.other_category(class="form-control is-invalid") }}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.other_category.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ form.other_category(class="form-control", placeholder="Specify the category") }}
+                                {% endif %}
+                            </div>
+
                             <div class="col-md-6">
                                 {{ form.date.label(class="form-label") }}
                                 {% if form.date.errors %}
@@ -89,6 +140,21 @@
                                     {{ form.date(class="form-control", type="date") }}
                                 {% endif %}
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.expiry_days.label(class="form-label") }}
+                            {% if form.expiry_days.errors %}
+                                {{ form.expiry_days(class="form-select is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.expiry_days.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {{ form.expiry_days(class="form-select") }}
+                            {% endif %}
+                            <div class="form-text">After this period, the item will be automatically archived if not claimed.</div>
                         </div>
                         
                         <div class="mb-3">
@@ -130,9 +196,10 @@
                         </div>
                         
                         <div class="mb-4">
-                            {{ form.image.label(class="form-label") }}
-                            {{ form.image(class="form-control") }}
-                            <div class="form-text">Upload an image of the item to help with identification (max 5MB).</div>
+                            {{ form.images.label(class="form-label") }}
+                            {{ form.images(class="form-control", multiple=True) }}
+                            <div class="form-text">Upload up to 5 images of the item to help with identification (max 5MB each).</div>
+                            <div id="image-preview" class="image-preview"></div>
                         </div>
                         
                         <div class="d-grid gap-2">
@@ -147,48 +214,136 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Leaflet JS for maps -->
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize map
-        const map = L.map('map').setView([40.7128, -74.0060], 13);
+        const defaultLat = 20.5937;
+        const defaultLng = 78.9629;
+        const map = L.map('map', {
+            center: [defaultLat, defaultLng],
+            zoom: 5,
+            scrollWheelZoom: true
+        });
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
-        
-        let marker;
-        
-        // Add marker on click
-        map.on('click', function(e) {
+
+        let marker = null;
+
+        // Function to update marker and coordinates
+        function updateMapLocation(lat, lng, zoom = 13) {
+            map.setView([lat, lng], zoom);
             if (marker) {
-                map.removeLayer(marker);
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+                // Update coordinates when marker is dragged
+                marker.on('dragend', function(e) {
+                    const pos = e.target.getLatLng();
+                    document.getElementById('latitude').value = pos.lat.toFixed(6);
+                    document.getElementById('longitude').value = pos.lng.toFixed(6);
+                });
             }
-            marker = L.marker(e.latlng).addTo(map);
-            
-            // Update hidden form fields with coordinates
-            document.getElementById('latitude').value = e.latlng.lat;
-            document.getElementById('longitude').value = e.latlng.lng;
-        });
-        
+            document.getElementById('latitude').value = lat.toFixed(6);
+            document.getElementById('longitude').value = lng.toFixed(6);
+        }
+
         // Try to get user's location
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                const userLocation = [position.coords.latitude, position.coords.longitude];
-                map.setView(userLocation, 15);
-                
-                // Add initial marker at user's location
-                marker = L.marker(userLocation).addTo(map);
-                
-                // Update hidden form fields with coordinates
-                document.getElementById('latitude').value = userLocation[0];
-                document.getElementById('longitude').value = userLocation[1];
-            }, function() {
-                // If geolocation fails, use default view
-                console.log("Geolocation failed or was denied");
-            });
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    updateMapLocation(position.coords.latitude, position.coords.longitude);
+                },
+                function(error) {
+                    console.warn('Geolocation error:', error);
+                    updateMapLocation(defaultLat, defaultLng, 5);
+                }
+            );
         }
+
+        // Add click handler to map
+        map.on('click', function(e) {
+            updateMapLocation(e.latlng.lat, e.latlng.lng);
+        });
+
+        // Handle location input changes
+        const locationInput = document.getElementById('location');
+        locationInput.addEventListener('change', function() {
+            if (this.value) {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(this.value)}`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.length > 0) {
+                            updateMapLocation(parseFloat(data[0].lat), parseFloat(data[0].lon));
+                        }
+                    })
+                    .catch(error => console.error('Geocoding error:', error));
+            }
+        });
+
+        // Handle category selection
+        const categorySelect = document.getElementById('category');
+        const otherCategoryContainer = document.getElementById('other-category-container');
+        const otherCategoryInput = document.getElementById('other_category');
+        
+        function toggleOtherCategory() {
+            if (categorySelect.value === 'others') {
+                otherCategoryContainer.style.display = 'block';
+                otherCategoryInput.setAttribute('required', 'required');
+            } else {
+                otherCategoryContainer.style.display = 'none';
+                otherCategoryInput.removeAttribute('required');
+                otherCategoryInput.value = '';
+            }
+        }
+        
+        // Initial check
+        toggleOtherCategory();
+        
+        // Add change event listener
+        categorySelect.addEventListener('change', toggleOtherCategory);
+
+        // Image preview functionality
+        const imageInput = document.getElementById('images');
+        const previewContainer = document.getElementById('image-preview');
+        
+        imageInput.addEventListener('change', function() {
+            previewContainer.innerHTML = '';
+            const files = Array.from(this.files).slice(0, 5); // Limit to 5 images
+            
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewWrapper = document.createElement('div');
+                    previewWrapper.className = 'image-preview-item';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    
+                    const removeBtn = document.createElement('span');
+                    removeBtn.className = 'remove-image';
+                    removeBtn.innerHTML = '×';
+                    removeBtn.onclick = function() {
+                        const newFileList = Array.from(imageInput.files)
+                            .filter((_, i) => i !== index);
+                        
+                        // Create a new FileList-like object
+                        const dt = new DataTransfer();
+                        newFileList.forEach(file => dt.items.add(file));
+                        imageInput.files = dt.files;
+                        
+                        previewWrapper.remove();
+                    };
+                    
+                    previewWrapper.appendChild(img);
+                    previewWrapper.appendChild(removeBtn);
+                    previewContainer.appendChild(previewWrapper);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
     });
 </script>
 {% endblock %}

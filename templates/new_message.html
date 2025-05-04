@@ -18,7 +18,7 @@
                     <h5 class="mb-0"><i class="fas fa-pen me-2"></i>Compose Message</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-3">
@@ -45,6 +45,16 @@
                                 <div class="text-danger">{{ error }}</div>
                             {% endfor %}
                         </div>
+
+                        <div class="mb-3">
+                            {{ form.image.label(class="form-label") }}
+                            {{ form.image(class="form-control") }}
+                            {% for error in form.image.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-text">Upload an image (JPG, PNG only, max 5MB)</div>
+                            <div id="image-preview" class="mt-2" style="max-width: 300px;"></div>
+                        </div>
                         
                         <div class="d-flex justify-content-between">
                             <a href="{{ url_for('messages') }}" class="btn btn-secondary">
@@ -58,4 +68,31 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.getElementById('image');
+    const previewDiv = document.getElementById('image-preview');
+    
+    imageInput.addEventListener('change', function() {
+        previewDiv.innerHTML = '';
+        if (this.files && this.files[0]) {
+            const img = document.createElement('img');
+            img.className = 'img-fluid rounded';
+            img.file = this.files[0];
+            previewDiv.appendChild(img);
+            
+            const reader = new FileReader();
+            reader.onload = (function(aImg) { 
+                return function(e) { 
+                    aImg.src = e.target.result; 
+                }; 
+            })(img);
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+});
+</script>
 {% endblock %}

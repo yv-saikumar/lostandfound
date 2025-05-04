@@ -4,7 +4,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Text, ForeignKey, DateTime, String, Boolean, Float, Integer
 from sqlalchemy.orm import relationship
-from app import db
+from extensions import db
 
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
@@ -13,8 +13,8 @@ class User(db.Model, UserMixin):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    phone_number = db.Column(db.String(20), nullable=True)  # For SMS notifications
-    profile_picture = db.Column(db.Text, nullable=True)
+    phone_number = db.Column(db.String(20), nullable=True)
+    profile_picture = db.Column(db.Text, nullable=True)  # Base64 encoded image
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     
@@ -40,10 +40,28 @@ class User(db.Model, UserMixin):
             'id': self.id,
             'name': self.name,
             'email': self.email,
+            'profile_picture': self.profile_picture,
             'is_admin': self.is_admin,
             'created_at': self.created_at
         }
 
+class Category(db.Model):
+    __tablename__ = 'categories'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'is_active': self.is_active,
+            'created_at': self.created_at
+        }
+
+# Add other_category field to Item model
 class Item(db.Model):
     __tablename__ = 'items'
     
@@ -53,23 +71,27 @@ class Item(db.Model):
     description = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(50), nullable=False)
     date = db.Column(db.Date, nullable=False)
+    expiry_date = db.Column(db.Date, nullable=True)  # New: Auto-archive date
     location = db.Column(db.String(200), nullable=False)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     contact_info = db.Column(db.String(100), nullable=False)
-    image_data = db.Column(db.Text, nullable=True)  # Base64 encoded image
+    images = db.Column(db.JSON, nullable=True)  # New: Multiple images as JSON array
+    tags = db.Column(db.JSON, nullable=True)  # New: Auto-generated tags
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='pending')  # 'pending', 'verified', 'claimed'
+    status = db.Column(db.String(20), default='pending')  # 'pending', 'verified', 'claimed', 'archived'
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     claimed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     verified_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    
+    archived_at = db.Column(db.DateTime, nullable=True)  # New: Archive timestamp
+    other_category = db.Column(db.String(50), nullable=True)
+
     # Relationships
     owner = relationship("User", back_populates="items", foreign_keys=[user_id])
     claimer = relationship("User", back_populates="claimed_items", foreign_keys=[claimed_by])
     verifier = relationship("User", back_populates="verified_items", foreign_keys=[verified_by])
     proofs = relationship("Proof", back_populates="item", cascade="all, delete-orphan")
-    
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -78,16 +100,19 @@ class Item(db.Model):
             'description': self.description,
             'category': self.category,
             'date': self.date,
+            'expiry_date': self.expiry_date,
             'location': self.location,
             'latitude': self.latitude,
             'longitude': self.longitude,
             'contact_info': self.contact_info,
-            'image_data': self.image_data,
+            'images': self.images,
+            'tags': self.tags,
             'user_id': self.user_id,
             'status': self.status,
             'created_at': self.created_at,
             'claimed_by': self.claimed_by,
-            'verified_by': self.verified_by
+            'verified_by': self.verified_by,
+            'archived_at': self.archived_at
         }
 
 class Message(db.Model):
@@ -98,6 +123,7 @@ class Message(db.Model):
     recipient_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     subject = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    image = db.Column(db.Text, nullable=True)  # Base64 encoded image
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     read = db.Column(db.Boolean, default=False)
     parent_id = db.Column(db.Integer, db.ForeignKey('messages.id'), nullable=True)
@@ -117,6 +143,9 @@ class Proof(db.Model):
     evidence = db.Column(db.Text, nullable=True)  # Base64 encoded image or document
     status = db.Column(db.String(20), default='pending')  # 'pending', 'approved', 'rejected'
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    claimed_at = db.Column(db.DateTime, nullable=True)  # When the claim was approved
+    rejected_at = db.Column(db.DateTime, nullable=True)  # When the claim was rejected
+    rejection_reason = db.Column(db.Text, nullable=True)  # Reason for rejection
     
     # Relationships
     item = relationship("Item", back_populates="proofs")
@@ -184,6 +213,16 @@ def get_items_by_user(user_id):
 
 def get_pending_items():
     return Item.query.filter_by(status='pending').all()
+
+def delete_item(item_id, user_id):
+    """Delete an item from the database. Only allows deletion by the item owner."""
+    item = Item.query.get(item_id)
+    if not item or item.user_id != user_id:
+        return False
+    
+    db.session.delete(item)
+    db.session.commit()
+    return True
 
 def update_item_status(item_id, status, admin_id=None):
     item = Item.query.get(item_id)
@@ -307,3 +346,53 @@ def create_default_admin():
         )
 
 # Note: This function will be called from app.py within an app context
+
+def archive_expired_items():
+    """Archive items that have passed their expiry date"""
+    from datetime import datetime
+    
+    # Find items that have expired and aren't claimed or already archived
+    expired_items = Item.query.filter(
+        Item.expiry_date <= datetime.utcnow().date(),
+        Item.status.in_(['pending', 'verified'])
+    ).all()
+    
+    for item in expired_items:
+        item.status = 'archived'
+        item.archived_at = datetime.utcnow()
+        
+        # Notify the owner
+        owner = get_user_by_id(item.user_id)
+        if owner and owner.email_notifications:
+            from flask_mail import Message
+            from app import mail
+            
+            msg = Message(
+                subject=f"Your Item Has Been Archived - {item.title}",
+                recipients=[owner.email]
+            )
+            msg.body = f"""
+Dear {owner.name},
+
+Your {item.item_type} item "{item.title}" has been automatically archived as it has reached its expiry date.
+If you wish to extend the listing, please log in to your account and update the item.
+
+Item Details:
+- Type: {item.item_type.capitalize()}
+- Category: {item.category}
+- Location: {item.location}
+- Date: {item.date.strftime('%B %d, %Y')}
+
+Best regards,
+Lost and Found Portal Team
+            """
+            try:
+                mail.send(msg)
+            except Exception as e:
+                print(f"Failed to send archive notification email: {e}")
+    
+    # Commit all changes
+    if expired_items:
+        db.session.commit()
+    
+    return len(expired_items)

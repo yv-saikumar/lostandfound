@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Lost and Found Portal{% endblock %}</title>
-    <!-- Bootstrap CSS (Replit Theme) -->
-    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <!-- Font Awesome Icons -->
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
@@ -14,10 +15,10 @@
 </head>
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg bg-light border-bottom sticky-top">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-search mr-2"></i> Lost & Found Portal
+                <i class="fas fa-search me-2"></i> Lost & Found Portal
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
                     aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,6 +59,17 @@
                 </ul>
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
+                    <li class="nav-item me-2">
+                        <a href="{{ url_for('messages') }}" class="nav-link position-relative">
+                            <i class="fas fa-envelope"></i>
+                            {% if unread_messages_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ unread_messages_count }}
+                                <span class="visually-hidden">unread messages</span>
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
@@ -80,8 +92,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('admin_login') %}active{% endif %}" 
-                           href="{{ url_for('admin_login') }}">
-                           <i class="fas fa-user-shield"></i> Admin</a>
+                           href="{{ url_for('admin_login') }}">Admin</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -109,52 +120,78 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-white py-4 mt-5">
+    <footer class="bg-light text-dark py-4 mt-5 border-top">
         <div class="container">
             <div class="row">
                 <div class="col-md-4">
-                    <h5>Lost & Found Portal</h5>
+                    <h5 class="text-primary">Lost & Found Portal</h5>
                     <p class="small">SAI: Secure, Assist, Inform</p>
                     <p class="small">A platform to help people find their lost belongings and return found items to their rightful owners.</p>
                 </div>
                 <div class="col-md-4">
-                    <h5>Quick Links</h5>
+                    <h5 class="text-primary">Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="{{ url_for('index') }}" class="text-decoration-none text-white-50">Home</a></li>
-                        <li><a href="{{ url_for('search') }}" class="text-decoration-none text-white-50">Search</a></li>
+                        <li><a href="{{ url_for('index') }}" class="text-decoration-none text-secondary">Home</a></li>
+                        <li><a href="{{ url_for('search') }}" class="text-decoration-none text-secondary">Search</a></li>
                         {% if current_user.is_authenticated %}
-                        <li><a href="{{ url_for('dashboard') }}" class="text-decoration-none text-white-50">Dashboard</a></li>
-                        <li><a href="{{ url_for('report_item', item_type='lost') }}" class="text-decoration-none text-white-50">Report Lost Item</a></li>
-                        <li><a href="{{ url_for('report_item', item_type='found') }}" class="text-decoration-none text-white-50">Report Found Item</a></li>
+                        <li><a href="{{ url_for('dashboard') }}" class="text-decoration-none text-secondary">Dashboard</a></li>
+                        <li><a href="{{ url_for('report_item', item_type='lost') }}" class="text-decoration-none text-secondary">Report Lost Item</a></li>
+                        <li><a href="{{ url_for('report_item', item_type='found') }}" class="text-decoration-none text-secondary">Report Found Item</a></li>
                         {% else %}
-                        <li><a href="{{ url_for('login') }}" class="text-decoration-none text-white-50">Login</a></li>
-                        <li><a href="{{ url_for('register') }}" class="text-decoration-none text-white-50">Register</a></li>
-                        <li><a href="{{ url_for('admin_login') }}" class="text-decoration-none text-white-50">Admin Portal</a></li>
+                        <li><a href="{{ url_for('login') }}" class="text-decoration-none text-secondary">Login</a></li>
+                        <li><a href="{{ url_for('register') }}" class="text-decoration-none text-secondary">Register</a></li>
+                        <li><a href="{{ url_for('admin_login') }}" class="text-decoration-none text-secondary">Admin Portal</a></li>
                         {% endif %}
                     </ul>
                 </div>
                 <div class="col-md-4">
-                    <h5>Contact</h5>
-                    <p class="small"><i class="fas fa-envelope me-2"></i> support@lostandfound.com</p>
-                    <p class="small"><i class="fas fa-phone me-2"></i> +1 (555) 123-4567</p>
+                    <h5 class="text-primary">Contact</h5>
+                    <p class="small"><i class="fas fa-envelope me-2"></i> admin@lostandfound.com</p>
+                    <p class="small"><i class="fas fa-phone me-2"></i> +91 9014508725</p>
                     <div class="social-icons mt-2">
-                        <a href="#" class="text-white me-2"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#" class="text-white me-2"><i class="fab fa-twitter"></i></a>
-                        <a href="#" class="text-white me-2"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="text-primary me-2"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" class="text-primary me-2"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-primary me-2"><i class="fab fa-instagram"></i></a>
                     </div>
                 </div>
             </div>
-            <hr class="my-3 bg-secondary">
+            <hr class="my-3">
             <div class="text-center small text-secondary">
-                &copy; 2023 Lost & Found Portal. All rights reserved.
+                &copy; 2025 Lost & Found Portal. All rights reserved.
             </div>
         </div>
     </footer>
 
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Initialize Bootstrap Components -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all dropdowns
+            var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
+            var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
+                return new bootstrap.Dropdown(dropdownToggleEl);
+            });
+
+            // Initialize all tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Initialize all popovers
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl);
+            });
+        });
+    </script>
+
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    
+    <!-- Additional Scripts -->
     {% block scripts %}{% endblock %}
 </body>
 </html>
